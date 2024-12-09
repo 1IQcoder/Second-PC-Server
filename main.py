@@ -3,16 +3,18 @@ from flask_cors import CORS
 import os, json, requests, subprocess
 from git import Repo, InvalidGitRepositoryError
 
-repos_dir = './repos'
-current_dir = os.getcwd()
+CURRENT_DIR = os.getcwd()
+REPOS_DIR = os.path.join(CURRENT_DIR, 'repos')
 app = Flask(__name__)
 CORS(app)
 
+if not os.path.exists(os.path.join(CURRENT_DIR, 'repos')):
+    os.makedirs(REPOS_DIR)
 
 def get_repos_info():
     data = []
-    for repo in os.listdir(os.path.join(current_dir, 'repos')):
-        repo_path = os.path.join(current_dir, 'repos', repo)
+    for repo in os.listdir(os.path.join(CURRENT_DIR, 'repos')):
+        repo_path = os.path.join(CURRENT_DIR, 'repos', repo)
         info_path = os.path.join(repo_path, 'info.json')
 
         if not os.path.isdir(repo_path) or not os.path.exists(info_path):
@@ -65,7 +67,7 @@ def pull_repo():
     try:
         json_object = json.dumps(info, indent=4)
     
-        with open(os.path.join(current_dir, 'repos', repo_name, 'info.json'), "w") as outfile:
+        with open(os.path.join(CURRENT_DIR, 'repos', repo_name, 'info.json'), "w") as outfile:
             outfile.write(json_object)
 
         return jsonify({"status": "success", "message": f"Repository updated in {repo_dir}."}), 200
@@ -80,8 +82,8 @@ def delete_repo():
     if not repo_name:
         return jsonify({ "message": "invalid repo name" }), 400
     
-    bat_file_path = os.path.join(current_dir, 'bats', 'delete_repo.bat')
-    folder_to_delete = os.path.join(current_dir, 'repos', repo_name)
+    bat_file_path = os.path.join(CURRENT_DIR, 'bats', 'delete_repo.bat')
+    folder_to_delete = os.path.join(CURRENT_DIR, 'repos', repo_name)
 
     if not os.path.exists(folder_to_delete):
         return jsonify({ "message": f"repo with name {repo_name} not found" }), 400
@@ -98,7 +100,7 @@ def delete_repo():
         return jsonify({ "message": f"code ({e.returncode}): {e.stderr}" }), 400
     
     if not os.path.exists(folder_to_delete):
-        return jsonify({ "message": f"folder {repos_dir} has been deleted" }), 200
+        return jsonify({ "message": f"folder {REPOS_DIR} has been deleted" }), 200
     else: return jsonify({ "message": f"folder delete error" }), 400
 
 
