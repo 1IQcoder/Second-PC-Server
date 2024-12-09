@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <!-- <link rel="stylesheet" href="../static/styles.css"> -->
+    <title>Document</title>
+</head>
+<body>
+    <section>
+        <h1>SPCS - Second PC Server</h1>
+    </section>
+
+    <section class="reposListWrapper">
+        <h2>Your repositories:</h2><br>
+
+        <div id="reposList">
+            <div class="repoElem">
+                <h3>repo name</h3>
+                <a href="https://github.com/1IQcoder/webhook--test.git">GitHub Repo</a>
+                <div>
+                    <span>docker status</span>
+                </div>
+                <div class="buttonsWrapper">
+                    <button class="git-pull" data-repoName="">git pull</button>
+                    <button class="docker-build" data-repoName="">docker build</button>
+                    <button class="docker-run" data-repoName="">docker run</button>
+                    <button class="pull-and-run" data-repoName="">pull and run</button>
+                    <button class="repo-delete" data-repoName="" style="background-color: red;">delete</button>
+                </div>
+            </div>
+        </div>
+
+        <br>
+        <div style="display: inline-flex;">
+            <button id="addNewRepoButton" style="background-color: var(--green-1);">Add repository</button>
+            <button id="closeNewRepoButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
+        </div>
+        <div id="addNewRepoWrapper">
+            <br>
+            <span>Repository url:</span>
+            <input type="text" name="repo_url">
+            <br>
+            <span>Branch name:</span>
+            <select name="branch"></select>
+            <br>
+            <span class="errMsg"></span>
+            <br>
+        </div>
+    </section>
+
+    <section class="terminal">
+        <div class="terminalTopMenu">
+            <button id="clearTerminalButton">clear</button>
+        </div>
+        <div id="terminalMessageWrapper">
+            <!-- <div>
+                <span>[08/Dec/2024 23:59:42] </span><span>Lorem ipsum dolor sit, amet consectetur adipisicing elit. Voluptate, minus magnam et ullam totam hic eligendi velit ex quam a odio obcaecati, laudantium neque veniam nisi incidunt! Esse, vel dolores!</span>
+            </div> -->
+        </div>
+    </section>
+
+    <script src="{{ url_for('static', filename='js/repo.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

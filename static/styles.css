@@ -1,0 +1,223 @@
+/*Обнуление*/
+*{
+	padding: 0;
+	margin: 0;
+	border: 0;
+}
+*,*:before,*:after{
+	-moz-box-sizing: border-box;
+	-webkit-box-sizing: border-box;
+	box-sizing: border-box;
+}
+:focus,:active{outline: none;}
+a:focus,a:active{outline: none;}
+
+nav,footer,header,aside{display: block;}
+
+html,body{
+	height: 100%;
+	width: 100%;
+	font-size: 100%;
+	line-height: 1;
+	font-size: 14px;
+	-ms-text-size-adjust: 100%;
+	-moz-text-size-adjust: 100%;
+	-webkit-text-size-adjust: 100%;
+}
+input,button,textarea{font-family:inherit;}
+
+input::-ms-clear{display: none;}
+button{cursor: pointer;}
+button::-moz-focus-inner {padding:0;border:0;}
+a, a:visited{text-decoration: none;}
+a:hover{text-decoration: none;}
+ul li{list-style: none;}
+img{vertical-align: top;}
+
+h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight: 400;}
+/*--------------------*/
+
+:root {
+    --green-1: rgb(12, 134, 40);
+    --grey-1: rgb(58, 58, 58);
+    --grey-2: rgb(77, 77, 77);
+}
+
+body {
+    background-color: rgb(24, 24, 24);
+    font-family: Arial, Helvetica, sans-serif;
+    display: flex;
+    flex-direction: column;
+}
+
+span, button {
+    font-size: 17px;
+    color: white;
+    font-weight: 500;
+}
+
+h1 {
+    font-size: 26px;
+    color: white;
+    margin: 20px;
+}
+
+h2 {
+    font-size: 22px;
+    color: white;
+}
+
+h3 {
+    font-size: 20px;
+    color: white;
+}
+
+button {
+    background-color: var(--grey-2);
+    width: fit-content;
+    padding: 5px 10px;
+    border-radius: 5px;
+}
+
+input, select {
+    width: 100%;
+    max-width: 500px;
+    border-radius: 5px;
+    border: solid var(--green-1) 3px;
+    padding: 3px 10px;
+    font-size: 16px;
+}
+
+.errMsg {
+    color: red;
+}
+
+/* reposListWrapper */
+.reposListWrapper {
+    margin: 10px 10px 10px 0;
+    width: auto;
+    height: auto;
+    padding: 20px 10px 10px 20px;
+    background-color: rgb(31, 31, 31);
+    position: relative;
+    border-top-right-radius: 5px;
+    border-bottom-right-radius: 5px;
+    overflow: hidden;
+}
+.reposListWrapper::before {
+    content: '';
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 10px;
+    background-color: var(--green-1);
+    position: absolute;
+}
+
+.repoElem {
+    display: flex;
+    flex-direction: column;
+    background-color: rgb(58, 58, 58);
+    padding: 10px 20px;
+    position: relative;
+    border-radius: 5px;
+    overflow: hidden;
+    margin-left: 10px
+}
+.repoElem::before {
+    content: '';
+    width: 10px;
+    height: 100%;
+    background-color: var(--green-1);
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+}
+
+
+/* addNewRepoWrapper */
+#addNewRepoWrapper {
+    flex-direction: column;
+    background-color: var(--grey-2);
+    padding: 0 0 0 10px;
+    position: relative;
+    border-bottom-right-radius: 5px;
+}
+#addNewRepoWrapper::before {
+    content: '';
+    background-color: var(--grey-2);
+    top: -5px;
+    left: 0;
+    right: 0;
+    height: 5px;
+    position: absolute;
+    border-top-right-radius: 5px;
+}
+
+
+/* Terminal */
+.terminal {
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    max-height: 400px;
+    bottom: 0;
+    left: 0;
+    border-top: solid var(--green-1) 10px;
+}
+.terminalTopMenu {
+    width: 100%;
+    height: 30px;
+    display: flex;
+    display: flex;
+    justify-content: flex-end;
+}
+.terminalTopMenu button {
+    background-color: rgba(255, 255, 255, 0);
+    width: fit-content;
+    border-radius: 0px;
+    color: rgb(181, 181, 181);
+    font-size: 14px;
+}
+.terminalTopMenu button:hover {
+    background-color: rgba(43, 43, 43, 0.518);
+}
+
+#terminalMessageWrapper {
+    width: 100%;
+    height: 100%;
+    overflow-x: none;
+    padding: 0 0 0 20px;
+}
+#terminalMessageWrapper span {
+    color: rgb(222, 222, 222);
+    font-size: 15px;
+    font-weight: 300;
+}
+
+#terminalMessageWrapper>div {
+    position: relative;
+}
+#terminalMessageWrapper>div::before {
+    content: '';
+    width: 5px;
+    position: absolute;
+    top: 0;
+    left: -10px;
+    bottom: 0;
+}
+
+#terminalMessageWrapper>div.ok::before {
+    background-color: var(--green-1);
+}
+#terminalMessageWrapper>div.err::before {
+    background-color: red;
+}
+#terminalMessageWrapper>div.warn::before {
+    background-color: yellow;
+}
+
+
+
+
