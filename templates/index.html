@@ -12,11 +12,11 @@
         <h1>SPCS - Second PC Server</h1>
     </section>
 
-    <section class="reposListWrapper">
+    <section class="reposList">
         <h2>Your repositories:</h2><br>
 
-        <div id="reposList">
-            <div class="repoElem">
+        <div class="reposList__wrapper">
+            <div class="reposList__wrapper__elem">
                 <h3>repo name</h3>
                 <a href="https://github.com/1IQcoder/webhook--test.git">GitHub Repo</a>
                 <div>
@@ -34,10 +34,10 @@
 
         <br>
         <div style="display: inline-flex;">
-            <button id="addNewRepoButton" style="background-color: var(--green-1);">Add repository</button>
-            <button id="closeNewRepoButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
+            <button id="reposList__addRepoButton" style="background-color: var(--green-1);">Add repository</button>
+            <button id="reposList__closeRepoButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
         </div>
-        <div id="addNewRepoWrapper">
+        <div class="reposList__newRepoWrapper">
             <br>
             <span>Repository url:</span>
             <input type="text" name="repo_url">
@@ -45,21 +45,27 @@
             <span>Branch name:</span>
             <select name="branch"></select>
             <br>
-            <span class="errMsg"></span>
+            <span>Path to root:</span>
+            <input type="text" name="root_path" placeholder="not required">
+            <br>
+            <span class="reposLis__newRepoWrapper__errMsg"></span>
             <br>
         </div>
     </section>
 
+    
     <section class="terminal">
-        <div class="terminalTopMenu">
-            <button id="clearTerminalButton">clear</button>
+        <div id="terminal_resizer"></div>
+        <div class="terminal__menu">
+            <button class="terminal__clearButton">clear</button>
         </div>
-        <div id="terminalMessageWrapper">
+        <div class="terminal_messagesWrapper">
             <!-- <div>
                 <span>[08/Dec/2024 23:59:42] </span><span>Lorem ipsum dolor sit, amet consectetur adipisicing elit. Voluptate, minus magnam et ullam totam hic eligendi velit ex quam a odio obcaecati, laudantium neque veniam nisi incidunt! Esse, vel dolores!</span>
             </div> -->
         </div>
     </section>
+   
 
     <script src="{{ url_for('static', filename='js/repo.js') }}"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>

@@ -1,4 +1,4 @@
-const $reposList = document.getElementById('reposList')
+const $reposList = document.querySelector('.reposList__wrapper')
 
 async function git_pull(button) {
     const blockId = button.dataset.id
@@ -38,7 +38,12 @@ async function delete_repo(button) {
 }
 
 
+async function docker_build(button) {
+    const blockId = button.dataset.id
+    const block = $reposList.querySelector(`#${CSS.escape(blockId)}`)
 
+
+}
 
 
 
