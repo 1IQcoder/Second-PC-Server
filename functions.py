@@ -1,4 +1,4 @@
-import subprocess
+import subprocess, json
 
 def run_command(command):
     print(f'run command: {command}')
@@ -27,3 +27,34 @@ else:
     print("Произошла ошибка:")
     print(output)
 '''
+
+
+class JsonEditor():
+    @staticmethod
+    def overwrite(file_path, data):
+        try:
+            with open(file_path, 'w') as file:
+                json.dump(data, file, indent=4, ensure_ascii=False)
+            print(f"Файл {file_path} успешно перезаписан.")
+        except Exception as e:
+            print(f"Ошибка при перезаписи файла: {e}")
+
+    @staticmethod
+    def read(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+            return data
+        except FileNotFoundError:
+            print(f"Файл {file_path} не найден.")
+            return None
+        except json.JSONDecodeError:
+            print(f"Файл {file_path} повреждён или не является JSON.")
+            return None
+        except Exception as e:
+            print(f"Ошибка при чтении файла: {e}")
+            return None
+        
+
+# file_data = JsonEditor.read(r'D:\склад\txt\SecondPC-server\accounts.json')
+# print(type(file_data))

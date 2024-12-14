@@ -1,10 +1,9 @@
-
-
 class ReposList {
     constructor(selector) {
         this.section = document.querySelector(selector);
 
         this.vars = {
+            repos: {},
             isNewRepoSectionOpen: false
         }
 
@@ -16,18 +15,24 @@ class ReposList {
             newRepo_errMsg: this.section.querySelector('.reposLis__newRepoWrapper__errMsg'),
             newRepo_urlInput: this.section.querySelector(' input[name="repo_url"]'),
             newRepo_branchSelect: this.createBranchSelectProxy(),
+            newRepo_isPrivateRepoInput: this.section.querySelector(' input[name="isPrivateRepo"]'),
+            newRepo__accountSelectDiv: this.section.querySelector('.newRepo__accountSelectDiv'),
+            newRepo_accountSelect: this.accountSelectProxy()
         };
 
         this.init();
     }
 
     init() {
-        this.elements.newRepo_closeButton.style.display = 'none'
-        this.elements.newRepo_wrapper.style.display = 'none'
+        this.loadRepos();
+        this.elements.newRepo_closeButton.style.display = 'none';
+        this.elements.newRepo_wrapper.style.display = 'none';
+        this.elements.newRepo__accountSelectDiv.style.display = 'none';
 
         this.elements.newRepo_branchSelect.e.addEventListener('focus', e => this.handleBranchSelect(e))
         this.elements.newRepo_closeButton.addEventListener('click', () => this.handleCloseButton())
         this.elements.newRepo_addButton.addEventListener('click', () => this.handleAddButton())
+        this.elements.newRepo_isPrivateRepoInput.addEventListener('change', (e) => this.handleIsPrivateRepoInput(e))
     }
 
     // FUNCTIONS
@@ -56,14 +61,36 @@ class ReposList {
         };
     }
 
-    async spawnRepo(url, branch) {
+    accountSelectProxy() {
+        const select = this.section.querySelector(' select[name="account"]');
+
+        return {
+            e: select,
+
+            update: async () => {
+                select.innerHTML = ''
+                const accountsStr = window.localStorage.getItem('accounts')
+                const accounts = JSON.parse(accountsStr);
+                console.log(accounts);
+                if (accounts.length < 1) {
+                    select.innerHTML = `<option value="1">you havent any account</option>`
+                }
+                for (const key in accounts) {
+                    const account = accounts[key];
+                    select.innerHTML += `<option value="${account.username}">${account.username} (${account.name})</option>`;
+                }
+            }
+        }
+    }
+    
+    async spawnRepo(repo) {
         const blockId = Date.now()
-        const repo_name = (url.slice(url.lastIndexOf('.com/')+5, url.length-4)).replace('/', '.') + '.' + branch
+
         this.elements.repos_wrapper.innerHTML += `
             <br>
-            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_url="${url}" data-repo_name="${repo_name}" data-repo_branch="${branch}">
-                <h3>${repo_name} (${branch})</h3>
-                <a href="${url}">GitHub Repo</a>
+            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_url="${repo.url}" data-repo_name="${repo.name}" data-repo_branch="${repo.branch}">
+                <h3>${repo.name} (${repo.branch})</h3>
+                <a href="${repo.url}">GitHub Repo</a>
                 <div>
                     <span>docker status</span>
                 </div>
@@ -76,6 +103,19 @@ class ReposList {
                 </div>
             </div>
         `
+    }
+
+    async loadRepos() {
+        console.log('sdgd');
+        const res = await fetch(`${SERVER_URL}/api/get-repos`, { method: 'GET' });
+        if (!res.ok) {
+            console.log('get repos error');
+            return;
+        }
+        const repos = await res.json();
+        repos.forEach(repo => {
+            this.spawnRepo(repo)
+        });
     }
 
     // EVENT LISTENERS
@@ -121,7 +161,16 @@ class ReposList {
         this.elements.newRepo_closeButton.style.display = 'none'
     }
 
-    handleAddButton() {
+    handleIsPrivateRepoInput(e) {
+        if (e.target.checked) {
+            this.elements.newRepo__accountSelectDiv.style.display = 'flex';
+            this.elements.newRepo_accountSelect.update();
+        } else if (!e.target.checked) {
+            this.elements.newRepo__accountSelectDiv.style.display = 'none';
+        }
+    }
+
+    async handleAddButton() {
         const vars = this.vars;
         const wrapper = this.elements.newRepo_wrapper;
 
@@ -136,14 +185,42 @@ class ReposList {
         } else {
             const repo_url = this.elements.newRepo_urlInput.value;
             const branch = this.elements.newRepo_branchSelect.e.value;
-            console.log(repo_url);
-            console.log(branch);
+            
             if (!repo_url || !branch) {
                 this.elements.newRepo_errMsg.textContent = 'url and branch are required'
                 return;
             }
     
-            this.spawnRepo(repo_url, branch)
+            let account = null;
+            let pathToDockerfile = '';
+            const repo_name = (url.slice(url.lastIndexOf('.com/')+5, url.length-4)).replace('/', '.') + '.' + branch;
+
+            if (this.elements.newRepo_isPrivateRepoInput.checked) {
+                account = this.elements.newRepo_accountSelect.e.value;
+            }
+
+            // добавление репозитория на сервере
+            const accounts = await JSON.parse(window.localStorage.getItem('accounts'));
+            const repoData = {
+                name: repo_name,
+                url: url,
+                branch: branch,
+                isPrivateRepo: isPrivateRepo,
+                account: account,
+                access_token: accounts[account]
+            }
+            this.vars.repos[repo_name] = repoData;
+            const reposStr = JSON.stringify(this.vars.repos);
+            window.localStorage.setItem('repos', reposStr);
+
+            const params = new URLSearchParams({ repoData });
+            const res = await fetch(`${SERVER_URL}/api/new-repo?${params.toString()}`, { method: 'GET' });
+            if (!res.ok) {
+                return console.log('new repo error');
+            }
+            // -----------------------------------
+
+            this.spawnRepo(repoData)
             wrapper.style.display = 'none'
             this.elements.newRepo_closeButton.style.display = 'none'
             vars.isNewRepoSectionOpen = false
@@ -152,11 +229,137 @@ class ReposList {
     }
     
 }
-const reposListSection = new ReposList('.reposList');
 
+class AccountsSection {
+    constructor(selector) {
+        this.section = document.querySelector(selector)
 
+        this.vars = {
+            isNewBlockOpen: false,
+            accounts: {}
+        }
 
-// terminalMessageWrapper
+        this.elements = {
+            accountsWrapper: this.accountsWrapperProxy(),
+            addAccountWrapper: this.addAccountWrapperProxy(),
+            addButton: this.section.querySelector('#accounts__addButton'),
+            closeButton: this.section.querySelector('#accounts__closeButton'),
+            errMsg: this.section.querySelector('.accounts__newWrapper__errMsg')
+        }
+
+        this.init();
+    }
+
+    init() {
+        this.loadAccounts();
+        this.elements.addAccountWrapper.hide();
+
+        this.elements.addButton.addEventListener('click', () => this.addButton_onClick())
+        this.elements.closeButton.addEventListener('click', () => this.elements.addAccountWrapper.hide())
+    }
+
+    // FUNCTIONS
+    addAccountWrapperProxy() {
+        const wrapper = this.section.querySelector('.accounts__newWrapper')
+        return {
+            e: wrapper,
+
+            hide: () => {
+                wrapper.style.display = 'none';
+                this.vars.isNewBlockOpen = false;
+                this.elements.closeButton.style.display = 'none';
+                this.elements.addButton.textContent = 'Add account';
+            },
+
+            show: () => {
+                wrapper.style.display = 'flex';
+                this.vars.isNewBlockOpen = true;
+                this.elements.closeButton.style.display = 'block';
+                this.elements.addButton.textContent = 'Confirm ✓';
+                this.elements.errMsg.textContent = '';
+            }
+        }
+    }
+
+    accountsWrapperProxy() {
+        const wrapper = this.section.querySelector('.accounts__wrapper')
+
+        return {
+            e: wrapper,
+
+            appendAccount: (accountObj) => {
+                const blockId = Date.now();
+                this.vars.accounts[accountObj.username] = accountObj;
+                
+                const accountsStr = JSON.stringify(this.vars.accounts);
+                window.localStorage.setItem('accounts', accountsStr);
+
+                wrapper.innerHTML += `
+                    <div id="${blockId}" class="--basicSection__block" data-username="${accountObj.username}">
+                        <h3>${accountObj.username}(${accountObj.name})</h3>
+                        <span>access_token: ${accountObj.access_token}</span>
+                        <br>
+                        <button style="background-color: red;" data-id="${blockId}" onclick="delete_account(this)">Delete</button>
+                    </div>
+                    <br>
+                `
+            }
+        }
+    }
+
+    async loadAccounts() {
+        const res = await fetch(`${SERVER_URL}/api/get-accounts`, { method: 'GET' })
+        if (!res.ok) {
+            return;
+        }
+        const data = await res.json();
+        for (const key in data) {
+            this.elements.accountsWrapper.appendAccount(data[key]);
+            this.vars.accounts[key] = data[key]
+        }
+        const accountsStr = JSON.stringify(this.vars.accounts);
+        window.localStorage.setItem('accounts', accountsStr);
+    }
+
+    // EVENT LISTENERS
+    async addButton_onClick() {
+        const isOpen = this.vars.isNewBlockOpen;
+        const displayState = this.elements.addAccountWrapper.e.style.display;
+        if (!isOpen) {
+            this.elements.addAccountWrapper.show();
+        } else if (isOpen && displayState != 'none') {
+            const username = this.elements.addAccountWrapper.e.querySelector('input[name="username"]').value;
+            const access_token = this.elements.addAccountWrapper.e.querySelector('input[name="access_token"]').value;
+
+            if (!access_token) {
+                this.elements.errMsg.textContent = 'access_token and username are required'
+                return;
+            }
+
+            const res = await (await fetch(`https://api.github.com/users/${username}`, {method: 'GET'})).json()
+            if (res.status == 404) {
+                this.elements.errMsg.textContent = 'user not found';
+            } else {
+                const accountObj = {
+                    username: username,
+                    name: res.name,
+                    access_token: access_token
+                }
+                const params = new URLSearchParams(accountObj);
+                fetch(`${SERVER_URL}/api/add-account?${params.toString()}`, { method: 'GET' })
+                .then(res => {
+                    if (!res.ok) {
+                        console.log('add account error');
+                        return;
+                    }
+                    this.elements.accountsWrapper.appendAccount(accountObj);
+                    this.elements.addAccountWrapper.hide();
+                })
+            }
+        }
+    }
+}
+
 class Terminal {
     constructor(selector) {
         this.section = document.querySelector(selector);
@@ -229,7 +432,10 @@ class Terminal {
     }
 }
 
+const reposListSection = new ReposList('.reposList');
+const accountsSection = new AccountsSection('.accounts');
 const terminal = new Terminal('.terminal');
-// terminal.addMsg(200, 'Lorem ipsum dolor sit, amet consectetur adipisicing elit. Voluptate, minus magnam et ullam totam hic eligendi velit ex quam a odio obcaecati, laudantium neque veniam nisi incidunt! Esse, vel dolores!')
+
+
 
 

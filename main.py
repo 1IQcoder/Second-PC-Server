@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import os, json, requests, subprocess
+from functions import JsonEditor
 from git import Repo, InvalidGitRepositoryError
 
 CURRENT_DIR = os.getcwd()
@@ -23,13 +24,72 @@ def get_repos_info():
         with open(info_path, 'r') as file:
             repo_info = json.load(file)
             data.append(repo_info)
+    return data
 
-
-get_repos_info()
+# print(get_repos_info())
 
 @app.route('/')
 def home():
     return render_template('index.html')
+
+
+@app.route('/api/add-account', methods=['GET'])
+def add_account():
+    jsonFilePath = os.path.join(CURRENT_DIR, 'accounts.json')
+    try:
+        username = request.args.get('username')
+        file_data = JsonEditor.read(jsonFilePath)
+
+        data = {
+            'username': username,
+            'name': request.args.get('name'),
+            'access_token': request.args.get('access_token')
+        }
+
+        file_data.update({ username: data })
+        JsonEditor.overwrite(jsonFilePath, file_data)
+    except Exception as err:
+        return jsonify({ "message": f"error: {err}" }), 400
+    
+    return jsonify({ "message": "account saved" }), 200
+
+
+@app.route('/api/get-accounts', methods=['GET'])
+def get_accounts():
+    jsonFilePath = os.path.join(CURRENT_DIR, 'accounts.json')
+    file_data = JsonEditor.read(jsonFilePath)
+    if not file_data:
+        return jsonify({ "message": "accounts list empty" }), 400
+    return jsonify(file_data), 200
+
+
+@app.route('/api/delete-account', methods=['GET'])
+def delete_account():
+    jsonFilePath = os.path.join(CURRENT_DIR, 'accounts.json')
+    username = request.args.get('username')
+    try:
+        file_data = JsonEditor.read(jsonFilePath)
+        del file_data[username]
+        JsonEditor.overwrite(jsonFilePath, file_data)
+        
+    except Exception as err:
+        return jsonify({ "message": f"error: {err}" }), 400
+    
+    return jsonify({ "message": "account deleted" }), 200
+
+
+@app.route('/api/new-repo', methods=['GET'])
+def new_repo():
+    repoStr = request.args.get('repo')
+    repo = json.loads(repoStr)
+    print(repo)
+    if not repo:
+        return jsonify({ "message": "error: repoData is empty" }), 400
+    os.mkdir(os.path.join(CURRENT_DIR, 'repos', repo['name']))
+    pathToInfo = os.path.join(CURRENT_DIR, 'repos', repo['name'], 'info.json')
+    with open(pathToInfo, 'w') as file:
+        JsonEditor.overwrite(pathToInfo, repo)
+    return jsonify({ "message": "new repository added" }), 200
 
 
 @app.route('/api/git-pull', methods=['GET'])
@@ -37,15 +97,16 @@ def pull_repo():
     repo_url = request.args.get('url')
     branch = request.args.get('branch')
     repo_name = request.args.get('name')
+    pathToDockerfile = request.args.get('root', '')
 
     if not repo_url or not branch or not repo_name:
         return jsonify({"message": "invalid query params"}), 400
 
-    repo_dir = os.path.join('./repos', repo_name)
+    repo_dir = os.path.join(CURRENT_DIR, 'repos', repo_name)
 
     try:
         if not os.path.exists(repo_dir):
-            os.makedirs('./repos', exist_ok=True)
+            os.makedirs(os.path.join(CURRENT_DIR, 'repos'), exist_ok=True)
             print(f"Клонирование репозитория {repo_url}...")
             Repo.clone_from(repo_url, repo_dir, branch=branch)
         else:
@@ -61,7 +122,8 @@ def pull_repo():
     info = {
         "name": repo_name,
         "url": repo_url,
-        "branch": branch
+        "branch": branch,
+        "root": pathToDockerfile
     }
 
     try:
@@ -73,6 +135,12 @@ def pull_repo():
         return jsonify({"status": "success", "message": f"Repository updated in {repo_dir}."}), 200
     except Exception as e:
         print(e)
+
+
+@app.route('/api/get-repos', methods=['GET'])
+def get_repos():
+    data = get_repos_info()
+    return jsonify(data), 200
 
 
 @app.route('/api/delete-repo')
