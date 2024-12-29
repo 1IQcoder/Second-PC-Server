@@ -1,4 +1,4 @@
-import subprocess, json
+import subprocess, json, os
 
 def run_command(command):
     print(f'run command: {command}')
@@ -28,6 +28,13 @@ else:
     print(output)
 '''
 
+# success, output = run_command("docker images")
+# if success:
+#     print("Команда выполнена успешно:")
+#     print(output)
+# else:
+#     print("Произошла ошибка:")
+#     print(output)
 
 class JsonEditor():
     @staticmethod

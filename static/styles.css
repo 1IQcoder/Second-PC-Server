@@ -52,10 +52,18 @@ body {
     height: 200%;
 }
 
-span, button {
+span, button, a, li {
     font-size: 17px;
     color: white;
     font-weight: 500;
+}
+
+a {
+    color: rgb(68, 158, 255);
+}
+
+li {
+    margin-left: 10px;
 }
 
 h1 {
@@ -71,6 +79,11 @@ h2 {
 
 h3 {
     font-size: 20px;
+    color: white;
+}
+
+h4 {
+    font-size: 18px;
     color: white;
 }
 
@@ -155,7 +168,8 @@ input, select {
 
 .reposList__wrapper__elem {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
+    justify-content: space-between;
     background-color: rgb(58, 58, 58);
     padding: 10px 20px;
     position: relative;
@@ -173,7 +187,11 @@ input, select {
     bottom: 0;
     left: 0;
 }
-
+.reposList__wrapper__elem__buttonsWrapper {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+}
 
 /* reposLis__newRepoWrapper */
 .reposList__newRepoWrapper {

@@ -17,7 +17,8 @@ class ReposList {
             newRepo_branchSelect: this.createBranchSelectProxy(),
             newRepo_isPrivateRepoInput: this.section.querySelector(' input[name="isPrivateRepo"]'),
             newRepo__accountSelectDiv: this.section.querySelector('.newRepo__accountSelectDiv'),
-            newRepo_accountSelect: this.accountSelectProxy()
+            newRepo_accountSelect: this.accountSelectProxy(),
+            newRepo_dockerfilepathInput: this.section.querySelector(' input[name="dockerfilepath"]')
         };
 
         this.init();
@@ -82,19 +83,30 @@ class ReposList {
             }
         }
     }
-    
+
+
     async spawnRepo(repo) {
-        const blockId = Date.now()
+        const blockId = Date.now();
 
         this.elements.repos_wrapper.innerHTML += `
             <br>
-            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_url="${repo.url}" data-repo_name="${repo.name}" data-repo_branch="${repo.branch}">
-                <h3>${repo.name} (${repo.branch})</h3>
-                <a href="${repo.url}">GitHub Repo</a>
-                <div>
-                    <span>docker status</span>
+            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_name="${repo.name}">
+                <div style="display: flex; flex-direction: column;">
+                    <h3>${repo.name} (${repo.branchName})</h3>
+                    <a href="${repo.url}">${repo.url} ⇱</a>
+                    <br>
+                    <span>private: ${repo.isPrivate}</span>
+                    <span>account: ${repo.account.username} (${repo.account.name})</span>
+                    <span>last downloaded commit: ${repo.git.commitHash}</span>
+                    <br>
+                    <ul>
+                        <h4>docker info:</h4>
+                        <li>container: ${repo.docker.isBuilded == true ? `builded/${repo.docker.status}` : '-'}</li>
+                        <li><span>build command:</span><input name="buildCommandInput" type="text" value="${repo.docker.buildCommand}"><button data-id="${blockId}" onclick="updateBuildCommand(this)">save</button></li>
+                        <li><span>run command:</span><input type="text" value="${repo.docker.runCommand}"></li>
+                    </ul>
                 </div>
-                <div class="buttonsWrapper">
+                <div class="reposList__wrapper__elem__buttonsWrapper">
                     <button class="git_pull" data-id="${blockId}" onclick="git_pull(this)">git pull</button>
                     <button class="docker_build" data-id="${blockId}" onclick="docker_build(this)">docker build</button>
                     <button class="docker_run" data-id="${blockId}" onclick="docker_run(this)">docker run</button>
@@ -105,21 +117,27 @@ class ReposList {
         `
     }
 
+
     async loadRepos() {
-        console.log('sdgd');
         const res = await fetch(`${SERVER_URL}/api/get-repos`, { method: 'GET' });
+        const resData = await res.json();
         if (!res.ok) {
-            console.log('get repos error');
-            return;
+            return terminal.addMsg(400, resData.message);
         }
-        const repos = await res.json();
-        repos.forEach(repo => {
-            this.spawnRepo(repo)
+        if (resData?.message) {
+            return terminal.addMsg(200, resData?.message || 'repositories loaded')
+        }
+        resData.forEach(repo => {
+            if (!repo) {
+                return;
+            }
+            this.vars.repos[repo.name] = repo;
+            this.spawnRepo(repo);
         });
     }
 
     // EVENT LISTENERS
-    handleBranchSelect(e) {
+    async handleBranchSelect(e) {
         const select = this.elements.newRepo_branchSelect
         const repo_url = this.elements.newRepo_urlInput.value
     
@@ -128,9 +146,25 @@ class ReposList {
             return;
         }
     
-        const parsed_url = repo_url.slice(repo_url.lastIndexOf('.com/')+5, repo_url.length-4)
-    
-        fetch(`https://api.github.com/repos/${parsed_url}/branches`)
+        const repoName = repo_url.slice(repo_url.lastIndexOf('.com/')+5, repo_url.length-4)
+        console.log(repoName);
+        const fetchBranchesUrl = `https://api.github.com/repos/${repoName}/branches`;
+        let headersObj;
+
+        if (this.elements.newRepo_isPrivateRepoInput.checked) {
+            const accounts = await JSON.parse(window.localStorage.getItem('accounts'));
+            const account = accounts[this.elements.newRepo_accountSelect.e.value];
+            
+            headersObj = {
+                'Authorization': `Bearer ${account.access_token}`,
+                'Accept': 'application/vnd.github.v3+json'
+            }
+        }
+
+        fetch(fetchBranchesUrl, {
+            method: 'GET',
+            headers: headersObj ?? ''
+        })
         .then(res => {
             if (!res.ok) {
                 select.appendOption('1', 'error occured');
@@ -187,37 +221,81 @@ class ReposList {
             const branch = this.elements.newRepo_branchSelect.e.value;
             
             if (!repo_url || !branch) {
-                this.elements.newRepo_errMsg.textContent = 'url and branch are required'
+                this.elements.newRepo_errMsg.textContent = 'url and branch are required';
                 return;
             }
     
-            let account = null;
-            let pathToDockerfile = '';
-            const repo_name = (url.slice(url.lastIndexOf('.com/')+5, url.length-4)).replace('/', '.') + '.' + branch;
+            const match = repo_url.match(/github\.com\/([^\/]+)\/([^\/.]+)/);
+            if (!match) {
+                this.elements.newRepo_errMsg.textContent = 'url not valid';
+                return;
+            }
+
+            const repoOwnerName = match[1];
+            const repoName = match[2];
+            const repoFullName = `${repoOwnerName}/${repoName}`;
+            const replacedRepoName = repoFullName.replace("/", ".");
+
+            let accountUsername = null;
+            const pathToDockerfile = this.elements.newRepo_dockerfilepathInput.value;
+            const dockerRootPath = pathToDockerfile[0] == '/' ? pathToDockerfile.slice(1) : pathToDockerfile;
+            const isPrivateRepo = this.elements.newRepo_isPrivateRepoInput.checked;
 
             if (this.elements.newRepo_isPrivateRepoInput.checked) {
-                account = this.elements.newRepo_accountSelect.e.value;
+                accountUsername = this.elements.newRepo_accountSelect.e.value;
             }
 
             // добавление репозитория на сервере
-            const accounts = await JSON.parse(window.localStorage.getItem('accounts'));
-            const repoData = {
-                name: repo_name,
-                url: url,
-                branch: branch,
-                isPrivateRepo: isPrivateRepo,
-                account: account,
-                access_token: accounts[account]
+            let account = '';
+            let access_token = '';
+            if (isPrivateRepo) {
+                const accounts = await JSON.parse(window.localStorage.getItem('accounts'));
+                account = accounts[accountUsername];
+                access_token = account.access_token;
             }
-            this.vars.repos[repo_name] = repoData;
+            const privateRepoUrl = `https://${access_token}@github.com/${repoOwnerName}/${repoName}.git`;
+
+            const repoData = {
+                url: repo_url,                              // private/public
+                privateUrl: privateRepoUrl,
+                fullName: repoFullName,                     // String: owner/repoName
+                ownerName: repoOwnerName,
+                repoName: repoName,
+                name: replacedRepoName,                     // String: owner.repoName
+                branchName: branch,
+                isPrivate: isPrivateRepo,                   // true/false
+                account: {
+                    username: isPrivateRepo == true ? account.username : '-',
+                    name: isPrivateRepo == true ? account.name : '-',
+                    access_token: isPrivateRepo == true ? access_token : '-',             // GitHub account`s access_token
+                },
+                git: {
+                    isPulled: false,                        // true/false
+                    commitHash: 1,
+                },
+                docker: {
+                    imageName: replacedRepoName.toLowerCase(),
+                    rootPath: dockerRootPath,               // path to Dockerfile directory,
+                    buildCommand: `docker build -t ${replacedRepoName.toLowerCase()}:latest ${dockerRootPath} --no-cache`,
+                    isBuilded: false,                       // true/false
+                    containerStatus: 'offline',             // offline/running/paused
+                    runCommand: `docker run --name ${replacedRepoName.toLowerCase()} -d -p 8080:80 ${replacedRepoName.toLowerCase()}:latest`,
+                }
+            }
+            console.log(repoData);
+
+            this.vars.repos[replacedRepoName] = repoData;
             const reposStr = JSON.stringify(this.vars.repos);
             window.localStorage.setItem('repos', reposStr);
 
-            const params = new URLSearchParams({ repoData });
+            const params = new URLSearchParams({ repo: JSON.stringify(repoData) });
             const res = await fetch(`${SERVER_URL}/api/new-repo?${params.toString()}`, { method: 'GET' });
+            const resData = await res.json();
             if (!res.ok) {
-                return console.log('new repo error');
+                terminal.addMsg(400, resData?.message)
+                return;
             }
+            terminal.addMsg(200, resData?.message)
             // -----------------------------------
 
             this.spawnRepo(repoData)
@@ -309,16 +387,22 @@ class AccountsSection {
 
     async loadAccounts() {
         const res = await fetch(`${SERVER_URL}/api/get-accounts`, { method: 'GET' })
+        const resData = await res.json();
+        window.localStorage.setItem('accounts', '{}');
         if (!res.ok) {
+            terminal.addMsg(400, resData?.message)
             return;
         }
-        const data = await res.json();
-        for (const key in data) {
-            this.elements.accountsWrapper.appendAccount(data[key]);
-            this.vars.accounts[key] = data[key]
+        for (const key in resData) {
+            if (!key) {
+                return;
+            }
+            this.elements.accountsWrapper.appendAccount(resData[key]);
+            this.vars.accounts[key] = resData[key]
         }
         const accountsStr = JSON.stringify(this.vars.accounts);
         window.localStorage.setItem('accounts', accountsStr);
+        terminal.addMsg(200, 'accounts list loaded')
     }
 
     // EVENT LISTENERS
@@ -346,14 +430,16 @@ class AccountsSection {
                     access_token: access_token
                 }
                 const params = new URLSearchParams(accountObj);
-                fetch(`${SERVER_URL}/api/add-account?${params.toString()}`, { method: 'GET' })
-                .then(res => {
+                fetch(`${SERVER_URL}/api/new-account?${params.toString()}`, { method: 'GET' })
+                .then(async res => {
+                    const resData = await res.json();
                     if (!res.ok) {
-                        console.log('add account error');
+                        terminal.addMsg(400, resData.message)
                         return;
                     }
                     this.elements.accountsWrapper.appendAccount(accountObj);
                     this.elements.addAccountWrapper.hide();
+                    terminal.addMsg(200, resData.message)
                 })
             }
         }
@@ -403,6 +489,7 @@ class Terminal {
             <div class="${msgType}">
                 <span>[${formatted}] </span><span>${msg}</span>
             </div>
+            <br>
         `
     }
 
@@ -432,9 +519,10 @@ class Terminal {
     }
 }
 
+const terminal = new Terminal('.terminal');
 const reposListSection = new ReposList('.reposList');
 const accountsSection = new AccountsSection('.accounts');
-const terminal = new Terminal('.terminal');
+
 
 
 

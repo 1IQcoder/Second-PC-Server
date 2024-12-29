@@ -42,6 +42,31 @@
         <h2>Your repositories:</h2><br>
 
         <div class="reposList__wrapper">
+            <br>
+            <!-- 
+            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_url="${repo.url}" data-repo_name="${repo.name}" data-repo_branch="${repo.branch}">
+                <div style="display: flex; flex-direction: column;">
+                    <h3>${repo.name} (${repo.branch})</h3>
+                    <a href="${repo.url}">${repo.url} ⇱</a>
+                    <br>
+                    <span>private: true</span>
+                    <span>account: 1IQcoder</span>
+                    <span>last downloaded commit: sdbg34yt8734yt873v4t</span>
+                    <br>
+                    <span>container: builded/offline</span>
+                    <div><span>build command:</span><input name="buildCommandInput" type="text" value="docker build -t ${replacedRepoName}:latest ${dockerRootPath} --no-cache"><button data-id="${blockId}" onclick="updateBuildCommand(this)">save</button></div>
+                    <div><span>run command:</span><input name="runCommandInput" type="text" value="docker build -t ${replacedRepoName}:latest ${dockerRootPath} --no-cache"><button data-id="${blockId}" onclick="updateRunCommand(this)">save</button></div>
+                </div>
+
+                <div class="reposList__wrapper__elem__buttonsWrapper">
+                    <button class="git_pull" data-id="${blockId}" onclick="git_pull(this)">git pull</button>
+                    <button class="docker_build" data-id="${blockId}" onclick="docker_build(this)">docker build</button>
+                    <button class="docker_run" data-id="${blockId}" onclick="docker_run(this)">docker run</button>
+                    <button class="pull_and_run" data-id="${blockId}" onclick="pull_and_run(this)">pull and run</button>
+                    <button class="delete-repo" data-id="${blockId}" onclick="delete_repo(this)" style="background-color: red;">delete</button>
+                </div>
+            </div>
+            -->
         </div>
 
         <br>
@@ -67,8 +92,8 @@
             <span>Branch name:</span>
             <select name="branch"></select>
             <br>
-            <span>Path to root:</span>
-            <input type="text" name="root_path" placeholder="not required">
+            <span>Relative path to DockerFile:</span>
+            <input type="text" name="dockerfilepath" placeholder="not required">
             <br>
             <span class="reposLis__newRepoWrapper__errMsg"></span>
             <br>
@@ -82,9 +107,7 @@
             <button class="terminal__clearButton">clear</button>
         </div>
         <div class="terminal_messagesWrapper">
-            <!-- <div>
-                <span>[08/Dec/2024 23:59:42] </span><span>Lorem ipsum dolor sit, amet consectetur adipisicing elit. Voluptate, minus magnam et ullam totam hic eligendi velit ex quam a odio obcaecati, laudantium neque veniam nisi incidunt! Esse, vel dolores!</span>
-            </div> -->
+            <br>
         </div>
     </section>
    
