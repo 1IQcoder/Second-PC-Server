@@ -2,3 +2,4 @@ __pycache__
 repos
 accounts.json
 .env
+*.log

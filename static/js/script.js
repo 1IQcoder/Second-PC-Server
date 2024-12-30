@@ -424,10 +424,14 @@ class AccountsSection {
             if (res.status == 404) {
                 this.elements.errMsg.textContent = 'user not found';
             } else {
-                const accountObj = {
+                const account = {
                     username: username,
                     name: res.name,
                     access_token: access_token
+                }
+
+                const accountObj = {
+                    account: JSON.stringify(account)
                 }
                 const params = new URLSearchParams(accountObj);
                 fetch(`${SERVER_URL}/api/new-account?${params.toString()}`, { method: 'GET' })
@@ -437,7 +441,7 @@ class AccountsSection {
                         terminal.addMsg(400, resData.message)
                         return;
                     }
-                    this.elements.accountsWrapper.appendAccount(accountObj);
+                    this.elements.accountsWrapper.appendAccount(account);
                     this.elements.addAccountWrapper.hide();
                     terminal.addMsg(200, resData.message)
                 })
