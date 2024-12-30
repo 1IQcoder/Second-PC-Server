@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from flask_cors import CORS
 import os, json, requests, subprocess
 from functions import JsonEditor, run_command
-from git import Repo, InvalidGitRepositoryError
+from git import Repo
 
 CURRENT_DIR = os.getcwd()
 REPOS_DIR = os.path.join(CURRENT_DIR, 'repos')

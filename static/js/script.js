@@ -234,7 +234,7 @@ class ReposList {
             const repoOwnerName = match[1];
             const repoName = match[2];
             const repoFullName = `${repoOwnerName}/${repoName}`;
-            const replacedRepoName = repoFullName.replace("/", ".");
+            const replacedRepoName = repoFullName.replace("/", ".") + '.' + branch;
 
             let accountUsername = null;
             const pathToDockerfile = this.elements.newRepo_dockerfilepathInput.value;
@@ -261,7 +261,7 @@ class ReposList {
                 fullName: repoFullName,                     // String: owner/repoName
                 ownerName: repoOwnerName,
                 repoName: repoName,
-                name: replacedRepoName,                     // String: owner.repoName
+                name: replacedRepoName,                     // String: owner.repoName.baranch
                 branchName: branch,
                 isPrivate: isPrivateRepo,                   // true/false
                 account: {
