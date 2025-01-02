@@ -1,5 +1,22 @@
 const $reposList = document.querySelector('.reposList__wrapper')
 
+async function fullLaunch(button) {
+    const params = new URLSearchParams({ repo_name: button.dataset.repo });
+    const res = await fetch(`${SERVER_URL}/api/full-launch?${params.toString()}`, { method: 'GET' });
+    const resData = await res.json();
+}
+
+async function switchRepoSettings(button) {
+    const blockId = button.dataset.id;
+    const block = $reposList.querySelector(`#${CSS.escape(blockId)}`);
+    const settingsBlock = block.querySelector('.reposList__wrapper__elem__settings');
+
+    if (settingsBlock.style.display == 'none' || settingsBlock.style.display == '') {
+        settingsBlock.style.display = 'flex';
+    } else {
+        settingsBlock.style.display = 'none';
+    }
+}
 
 async function delete_account(button) {
     const blockId = button.dataset.id;
@@ -42,7 +59,7 @@ async function delete_repo(button) {
     const blockId = button.dataset.id;
     const block = $reposList.querySelector(`#${CSS.escape(blockId)}`);
 
-    const params = new URLSearchParams({ name: block.dataset.repo_name });
+    const params = new URLSearchParams({ name: button.dataset.repo });
 
     const res = await fetch(`${SERVER_URL}/api/delete-repo?${params.toString()}`, { method: 'GET' });
     const resData = await res.json();

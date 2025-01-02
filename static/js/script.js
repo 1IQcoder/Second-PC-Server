@@ -46,7 +46,7 @@ class ReposList {
                 return select
             },
 
-            appendOption(value, text, clear=false) {
+            appendOption(value, text, clear = false) {
                 if (clear) {
                     select.innerHTML = ''
                 }
@@ -90,28 +90,61 @@ class ReposList {
 
         this.elements.repos_wrapper.innerHTML += `
             <br>
-            <div id="${blockId}" class="reposList__wrapper__elem" data-repo_name="${repo.name}">
-                <div style="display: flex; flex-direction: column;">
-                    <h3>${repo.name} (${repo.branchName})</h3>
-                    <a href="${repo.url}">${repo.url} ⇱</a>
-                    <br>
-                    <span>private: ${repo.isPrivate}</span>
-                    <span>account: ${repo.account.username} (${repo.account.name})</span>
-                    <span>last downloaded commit: ${repo.git.commitHash}</span>
-                    <br>
-                    <ul>
-                        <h4>docker info:</h4>
-                        <li>container: ${repo.docker.isBuilded == true ? `builded/${repo.docker.status}` : '-'}</li>
-                        <li><span>build command:</span><input name="buildCommandInput" type="text" value="${repo.docker.buildCommand}"><button data-id="${blockId}" onclick="updateBuildCommand(this)">save</button></li>
-                        <li><span>run command:</span><input type="text" value="${repo.docker.runCommand}"></li>
-                    </ul>
+            <div class="reposList__wrapper__elem" id="${blockId}">
+                <h3>Repo: ${repo.repoName} Owner: ${repo.ownerName} Branch: ${repo.branchName}</h3>
+                <br>
+                <div class="reposList__wrapper__elem__table">
+                    <div data-name="Downloaded">
+                        <span>Downloaded</span>
+                        <span>False</span>
+                    </div>
+                    <div data-name="Builded">
+                        <span>Builded</span>
+                        <span>False</span>
+                    </div>
+                    <div data-name="Container">
+                        <span>Container</span>
+                        <span>None</span>
+                    </div>
+                    <div data-name="Ports">
+                        <span>Ports</span>
+                        <span>----/----</span>
+                    </div>
                 </div>
-                <div class="reposList__wrapper__elem__buttonsWrapper">
-                    <button class="git_pull" data-id="${blockId}" onclick="git_pull(this)">git pull</button>
-                    <button class="docker_build" data-id="${blockId}" onclick="docker_build(this)">docker build</button>
-                    <button class="docker_run" data-id="${blockId}" onclick="docker_run(this)">docker run</button>
-                    <button class="pull_and_run" data-id="${blockId}" onclick="pull_and_run(this)">pull and run</button>
-                    <button class="delete-repo" data-id="${blockId}" onclick="delete_repo(this)" style="background-color: red;">delete</button>
+                <br>
+                <div style="display: inline-flex;">
+                    <button data-id="${blockId}" onclick="switchRepoSettings(this)">Edit settings</button>
+                    <br>
+                    <button data-repo="${repo.name}" onclick="fullLaunch(this)">Run container</button>
+                    <br>
+                    <button data-id="${blockId}" data-repo="${repo.name}" onclick="delete_repo(this)">Delete repo</button>
+                </div>
+                <div class="reposList__wrapper__elem__settings">
+                    <div>
+                        <span>rootPath:</span>
+                        <input type="text" value="${repo.docker.rootPath}">
+                        <button>edit</button>
+                    </div>
+                    <div>
+                        <span>buildCommand:</span>
+                        <input type="text" value="${repo.docker.buildCommand}">
+                        <button>edit</button>
+                    </div>
+                    <div>
+                        <span>runCommand:</span>
+                        <input type="text" value="${repo.docker.runCommand}">
+                        <button>edit</button>
+                    </div>
+                    <div>
+                        <span>Local port:</span>
+                        <input type="text" value="sdgoisdjg8sd89gd">
+                        <button>edit</button>
+                    </div>
+                    <div>
+                        <span>In docker port:</span>
+                        <input type="text" value="sdgoisdjg8sd89gd">
+                        <button>edit</button>
+                    </div>
                 </div>
             </div>
         `
@@ -140,13 +173,13 @@ class ReposList {
     async handleBranchSelect(e) {
         const select = this.elements.newRepo_branchSelect
         const repo_url = this.elements.newRepo_urlInput.value
-    
+
         if (!repo_url) {
             this.elements.newRepo_errMsg.textContent = 'invalid repository url'
             return;
         }
-    
-        const repoName = repo_url.slice(repo_url.lastIndexOf('.com/')+5, repo_url.length-4)
+
+        const repoName = repo_url.slice(repo_url.lastIndexOf('.com/') + 5, repo_url.length - 4)
         console.log(repoName);
         const fetchBranchesUrl = `https://api.github.com/repos/${repoName}/branches`;
         let headersObj;
@@ -154,38 +187,39 @@ class ReposList {
         if (this.elements.newRepo_isPrivateRepoInput.checked) {
             const accounts = await JSON.parse(window.localStorage.getItem('accounts'));
             const account = accounts[this.elements.newRepo_accountSelect.e.value];
-            
+
             headersObj = {
                 'Authorization': `Bearer ${account.access_token}`,
                 'Accept': 'application/vnd.github.v3+json'
             }
+            console.log(headersObj);
         }
 
         fetch(fetchBranchesUrl, {
             method: 'GET',
             headers: headersObj ?? ''
         })
-        .then(res => {
-            if (!res.ok) {
-                select.appendOption('1', 'error occured');
-                return Promise.reject('bad responce');
-            }
-            select.appendOption('1', 'loading...');
-            return res.json();
-        })
-        .then(res => {
-            select.clearOptions()
-            if (res.length == 0) {
-                this.elements.newRepo_errMsg.textContent = 'this repository have no branch';
-                return;
-            }
-            res?.forEach(e => {
-                select.appendOption(e.name, e.name);
-            });
-        })
-        .catch(err => {
-            this.elements.newRepo_errMsg.textContent = err;
-        })
+            .then(res => {
+                if (!res.ok) {
+                    select.appendOption('1', 'error occured');
+                    return Promise.reject('bad responce');
+                }
+                select.appendOption('1', 'loading...');
+                return res.json();
+            })
+            .then(res => {
+                select.clearOptions()
+                if (res.length == 0) {
+                    this.elements.newRepo_errMsg.textContent = 'this repository have no branch';
+                    return;
+                }
+                res?.forEach(e => {
+                    select.appendOption(e.name, e.name);
+                });
+            })
+            .catch(err => {
+                this.elements.newRepo_errMsg.textContent = err;
+            })
     }
 
     handleCloseButton() {
@@ -219,12 +253,12 @@ class ReposList {
         } else {
             const repo_url = this.elements.newRepo_urlInput.value;
             const branch = this.elements.newRepo_branchSelect.e.value;
-            
+
             if (!repo_url || !branch) {
                 this.elements.newRepo_errMsg.textContent = 'url and branch are required';
                 return;
             }
-    
+
             const match = repo_url.match(/github\.com\/([^\/]+)\/([^\/.]+)/);
             if (!match) {
                 this.elements.newRepo_errMsg.textContent = 'url not valid';
@@ -240,6 +274,10 @@ class ReposList {
             const pathToDockerfile = this.elements.newRepo_dockerfilepathInput.value;
             const dockerRootPath = pathToDockerfile[0] == '/' ? pathToDockerfile.slice(1) : pathToDockerfile;
             const isPrivateRepo = this.elements.newRepo_isPrivateRepoInput.checked;
+            const ports = {
+                locall: this.elements.newRepo_wrapper.querySelector(' input[name="dockerPort"]').value,
+                docker: this.elements.newRepo_wrapper.querySelector(' input[name="locallPort"]').value
+            }
 
             if (this.elements.newRepo_isPrivateRepoInput.checked) {
                 accountUsername = this.elements.newRepo_accountSelect.e.value;
@@ -278,8 +316,13 @@ class ReposList {
                     rootPath: dockerRootPath,               // path to Dockerfile directory,
                     buildCommand: `docker build -t ${replacedRepoName.toLowerCase()}:latest ${dockerRootPath} --no-cache`,
                     isBuilded: false,                       // true/false
+                    isRunning: false,
                     containerStatus: 'offline',             // offline/running/paused
-                    runCommand: `docker run --name ${replacedRepoName.toLowerCase()} -d -p 8080:80 ${replacedRepoName.toLowerCase()}:latest`,
+                    ports: {
+                        locall: ports.locall,
+                        container: ports.docker
+                    },
+                    runCommand: `docker run --name ${replacedRepoName.toLowerCase()} -d -p ${ports.locall}:${ports.docker} ${replacedRepoName.toLowerCase()}:latest`,
                 }
             }
             console.log(repoData);
@@ -305,7 +348,7 @@ class ReposList {
             this.elements.newRepo_addButton.textContent = 'Add repository'
         }
     }
-    
+
 }
 
 class AccountsSection {
@@ -368,7 +411,7 @@ class AccountsSection {
             appendAccount: (accountObj) => {
                 const blockId = Date.now();
                 this.vars.accounts[accountObj.username] = accountObj;
-                
+
                 const accountsStr = JSON.stringify(this.vars.accounts);
                 window.localStorage.setItem('accounts', accountsStr);
 
@@ -420,7 +463,7 @@ class AccountsSection {
                 return;
             }
 
-            const res = await (await fetch(`https://api.github.com/users/${username}`, {method: 'GET'})).json()
+            const res = await (await fetch(`https://api.github.com/users/${username}`, { method: 'GET' })).json()
             if (res.status == 404) {
                 this.elements.errMsg.textContent = 'user not found';
             } else {
@@ -435,16 +478,16 @@ class AccountsSection {
                 }
                 const params = new URLSearchParams(accountObj);
                 fetch(`${SERVER_URL}/api/new-account?${params.toString()}`, { method: 'GET' })
-                .then(async res => {
-                    const resData = await res.json();
-                    if (!res.ok) {
-                        terminal.addMsg(400, resData.message)
-                        return;
-                    }
-                    this.elements.accountsWrapper.appendAccount(account);
-                    this.elements.addAccountWrapper.hide();
-                    terminal.addMsg(200, resData.message)
-                })
+                    .then(async res => {
+                        const resData = await res.json();
+                        if (!res.ok) {
+                            terminal.addMsg(400, resData.message)
+                            return;
+                        }
+                        this.elements.accountsWrapper.appendAccount(account);
+                        this.elements.addAccountWrapper.hide();
+                        terminal.addMsg(200, resData.message)
+                    })
             }
         }
     }
@@ -479,7 +522,7 @@ class Terminal {
     addMsg(status, msg) {
         const now = new Date();
         const formatted = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        
+
         let msgType
         if (status == 200 || status == 'ok') {
             msgType = 'ok'

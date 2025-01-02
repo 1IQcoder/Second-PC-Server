@@ -41,7 +41,12 @@ class JsonEditor():
             print(f"Ошибка при перезаписи файла: {e}")
 
     @staticmethod
-    def read(file_path):
+    def read(file_path) -> dict | None:
+        """
+        Reads data from .json file
+
+        Returns dictrionary or None if error occured
+        """
         try:
             with open(file_path, 'r') as file:
                 data = json.load(file)
@@ -134,6 +139,20 @@ class ReposController(BaseController):
                 reposList.append(repo_info)
         return False, reposList
     
+    def getRepo(self, repoName: str | dict) -> tuple[bool, dict]:
+        """
+        Returns tuple:
+            is the repo found? (bool)\n
+            info.json data (dict)
+        """
+        if not os.path.isdir(os.path.join(self.REPOS_DIR, repoName)):
+            # repo not found
+            return False, {}
+        file = JsonEditor.read(os.path.join(self.REPOS_DIR, repoName, 'info.json'))
+        if not file:
+            return False, {}
+        return True, file
+
     def addRepo(self, repoObj: dict):
         """
         Added new repository. Creates a new repository folder and info.json file.
@@ -178,7 +197,7 @@ class ReposController(BaseController):
 
         Parameters:\n
             1. repoObject (dict) or repoFullName (str)\n
-            2. valuesForUpdate (dict) example: { 'a': 46, 'j': 'pon' }
+            2. valuesForUpdate (dict) example: { 'a': 46, 'j/dsgd/34': 'pon' }
 
         Return exception (str) if an errors occurs
         """
@@ -273,6 +292,14 @@ class DockerController(ReposController):
 
         infoFilePath = os.path.join(self.REPOS_DIR, repoName, 'info.json')
         infoFile = JsonEditor.read(infoFilePath)
+        imageName = infoFile['docker']['imageName']
+
+        delImagesCommand = f'docker images --filter "reference={imageName}" -q | ' + " ForEach-Object { docker rmi -f $_ }"
+        status, output = run_command(delImagesCommand)
+        if not status:
+            log.error(f"Error while deleting images with indentical name: {output}")
+            # return f"Error while deleting images with indentical name: {output}"
+
         buildCommand = infoFile['docker']['buildCommand'] + ' ' + os.path.join(self.REPOS_DIR, repoName, 'src', infoFile['docker']['rootPath'])
         log.info(f"Start docker image building. repoName=({repoName}) command=({buildCommand})")
 
@@ -306,17 +333,51 @@ class DockerController(ReposController):
         infoFile = JsonEditor.read(infoFilePath)
         imageName = infoFile['docker']['imageName']
 
+        delContainersCommand = f'docker ps -a --filter "name={imageName}" -q | ' + 'ForEach-Object { docker rm -f $_ }'
+        status, output = run_command(delContainersCommand)
+        if not status:
+            log.error(f"error deleting images with identical name. Output: {output}")
+            # return f"error deleting images with identical name. Output: {output}"
+
         status, output = run_command(f'docker image inspect {imageName}')
         if not status:
+            self.updateRepo(repoName, { "docker/isBuilded": False })
             log.error(f"No such image exists: repoName=({repoName}), command output: {output}")
             return f"No such image exists"
+        
         status, output = run_command(infoFile['docker']['runCommand'])
         if not status:
             log.error(f"Container startup error: command failed. command output: {output}")
             return f"Container startup error: command failed. command output: {output}"
         log.info(f"Container started successfully. repoName=({repoName}) imageName=({imageName})")
 
+"""
+class FullLaunch(AccountsController, ReposController, GitController, DockerController):
+    def launch(self, repoName: str) -> None | str:
+        isExsists, infoFile = self.getRepo(repoName)
+        if not isExsists:
+            return "Repository not found"
+        
+        # git pull
+        if not infoFile['isDownloaded']:
+            err = self.pullRepo(repoName)
+            if err: return err
+            self.updateRepo(repoName, { "isDownloaded": True })
+        
+        # docker build
+        if not infoFile['docker']['isBuilded']:
+            err = self.dockerBuild(repoName)
+            if err: return err
+            self.updateRepo(repoName, { "docker/isBuilded": True })
 
+        # docker run
+        if not infoFile['docker']['isRunning']:
+            err = self.dockerRun(repoName)
+            if err: return err
+            self.updateRepo(repoName, { "docker/isRunning": True })
+
+        return None
+"""
 
 
 

@@ -168,7 +168,7 @@ input, select {
 
 .reposList__wrapper__elem {
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: space-between;
     background-color: rgb(58, 58, 58);
     padding: 10px 20px;
@@ -187,6 +187,36 @@ input, select {
     bottom: 0;
     left: 0;
 }
+.reposList__wrapper__elem__table {
+    display: flex;
+}
+.reposList__wrapper__elem__table>div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    border-left: 2px solid rgb(0, 0, 0);
+    border-right: 2px solid rgb(0, 0, 0);
+}
+.reposList__wrapper__elem__table>div>span {
+    padding: 5px;
+}
+.reposList__wrapper__elem__table>div>span:first-child {
+    content: '';
+    width: 100%;
+    border-bottom: 2px solid black;
+}
+.reposList__wrapper__elem__settings {
+    display: none;
+    flex-direction: column;
+}
+.reposList__wrapper__elem__settings>div {
+    display: inline-flex;
+    align-items: center;
+    margin-top: 5px;
+}
+
+
 .reposList__wrapper__elem__buttonsWrapper {
     display: flex;
     flex-direction: column;

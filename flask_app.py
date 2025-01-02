@@ -116,6 +116,35 @@ def docker_run():
     return jsonify({ "message": f"Image is running, repoName=({repoName})" }), 200
 
 
+@app.route('/api/full-launch', methods=['GET'])
+def full_launch():
+    repoName = request.args.get('repo_name')
+    
+    isExsists, infoFile = reposController.getRepo(repoName)
+    if not isExsists:
+        return "Repository not found"
+    
+    # git pull
+    if not infoFile['git']['isPulled']:
+        err = gitController.pullRepo(repoName)
+        if err: return err
+        reposController.updateRepo(repoName, { "git/isPulled": True })
+    
+    # docker build
+    if not infoFile['docker']['isBuilded']:
+        err = dockerController.dockerBuild(repoName)
+        if err: return err
+        reposController.updateRepo(repoName, { "docker/isBuilded": True })
+
+    # docker run
+    if not infoFile['docker']['isRunning']:
+        err = dockerController.dockerRun(repoName)
+        if err: return err
+        reposController.updateRepo(repoName, { "docker/isRunning": True })
+
+    return jsonify({ "message": "ok" }), 200
+
+
 def run_flask():
     app.run(debug=True, host='0.0.0.0', port=3000, use_reloader=False)
 
