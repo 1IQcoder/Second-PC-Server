@@ -7,150 +7,105 @@
     <title>Document</title>
 </head>
 <body>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
     <script>
-        const SERVER_URL = 'http://127.0.0.1:3000';
+        const SERVER_URL = 'http://192.168.1.159:1488';
     </script>
 
-    <section>
-        <h1>SPCS - Second PC Server</h1>
-    </section>
+    <div class="wrapper">
+        <section>
+            <h1>SPCS - Second PC Server</h1>
+        </section>
 
-    <section class="accounts --basicSection --topBorder">
-        <h2>Your GitHub accounts:</h2>
-        <br>
-        <div class="accounts__wrapper">
-        </div>
-        <br>
-        <div style="display: inline-flex;">
-            <button id="accounts__addButton" style="background-color: var(--green-1);">Add account</button>
-            <button id="accounts__closeButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
-        </div>
-        <div class="accounts__newWrapper --basicSection__addpPanel">
+        <section class="accounts --basicSection --topBorder">
+            <h2>Your GitHub accounts:</h2>
             <br>
-            <span>Username:</span>
-            <input type="text" name="username">
-            <br>
-            <span>access_token:</span>
-            <input type="text" name="access_token">
-            <br>
-            <span class="accounts__newWrapper__errMsg" style="color: red;"></span>
-            <br>
-        </div>
-    </section>
-
-    <section class="reposList --basicSection --topBorder" style="margin-top: 20px;">
-        <h2>Your repositories:</h2><br>
-
-        <div class="reposList__wrapper">
-            <br>
-            <div class="reposList__wrapper__elem" id="456805645646245">
-                <h3>Pon-wehuwegwe/werwerwe.werew</h3>
-                <br>
-                <div class="reposList__wrapper__elem__table">
-                    <div data-name="Downloaded">
-                        <span>Downloaded</span>
-                        <span>False</span>
-                    </div>
-                    <div data-name="Builded">
-                        <span>Builded</span>
-                        <span>False</span>
-                    </div>
-                    <div data-name="Container">
-                        <span>Container</span>
-                        <span>Ruinning</span>
-                    </div>
-                    <div data-name="Ports">
-                        <span>Ports</span>
-                        <span>3001/3001</span>
-                    </div>
-                </div>
-                <br>
-                <div style="display: inline-flex;">
-                    <button data-id="456805645646245" onclick="switchRepoSettings(this)">Edit settings</button>
-                    <br>
-                    <button>Run container</button>
-                </div>
-                <div class="reposList__wrapper__elem__settings">
-                    <div>
-                        <span>rootPath:</span>
-                        <input type="text" value="sdgoisdjg8sd89gd">
-                        <button>edit</button>
-                    </div>
-                    <div>
-                        <span>buildCommand:</span>
-                        <input type="text" value="sdgoisdjg8sd89gd">
-                        <button>edit</button>
-                    </div>
-                    <div>
-                        <span>runCommand:</span>
-                        <input type="text" value="sdgoisdjg8sd89gd">
-                        <button>edit</button>
-                    </div>
-                    <div>
-                        <span>Local port:</span>
-                        <input type="text" value="sdgoisdjg8sd89gd">
-                        <button>edit</button>
-                    </div>
-                    <div>
-                        <span>In docker port:</span>
-                        <input type="text" value="sdgoisdjg8sd89gd">
-                        <button>edit</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <br>
-        <div style="display: inline-flex;">
-            <button id="reposList__addRepoButton" style="background-color: var(--green-1);">Add repository</button>
-            <button id="reposList__closeRepoButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
-        </div>
-        <div class="reposList__newRepoWrapper">
-            <br>
-            <div style="display: inline-flex; justify-content: flex-start; align-items: flex-start;">
-                <span>Private repo:</span>
-                <input type="checkbox" style="width: 15px; height: 15px; margin-left: 10px;" name="isPrivateRepo">
+            <div class="accounts__wrapper">
             </div>
             <br>
-            <div class="newRepo__accountSelectDiv" style="flex-direction: column; padding-left: 10px;">
-                <span>Account:</span>
-                <select name="account" id=""></select>
-            </div>
-            <br>
-            <span>Repository url:</span>
-            <input type="text" name="repo_url">
-            <br>
-            <span>Branch name:</span>
-            <select name="branch"></select>
-            <br>
-            <span>Relative path to DockerFile:</span>
-            <input type="text" name="dockerfilepath" placeholder="not required">
-            <br>
-            <span>Ports: [locallhost:container]</span>
             <div style="display: inline-flex;">
-                <input type="text" name="locallPort" style="width: 60px;">
-                <span style="font-size: 25px;">:</span>
-                <input type="text" name="dockerPort" style="width: 60px;">
+                <button id="accounts__addButton" style="background-color: var(--green-1);">Add account</button>
+                <button id="accounts__closeButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
+            </div>
+            <div class="accounts__newWrapper --basicSection__addpPanel">
+                <br>
+                <span>Username:</span>
+                <input type="text" name="username">
+                <br>
+                <span>access_token:</span>
+                <input type="text" name="access_token">
+                <br>
+                <span class="accounts__newWrapper__errMsg" style="color: red;"></span>
+                <br>
+            </div>
+        </section>
+
+        <section class="reposList --basicSection --topBorder" style="margin-top: 20px;">
+            <div style="display: flex; flex-direction: column; width: 100%;">
+                <h2>Your repositories:</h2>
+                <button class="repos_updateButton" style="background-color: green;">Update ↻</button>
             </div>
             <br>
-            <span class="reposLis__newRepoWrapper__errMsg"></span>
+
+            <div class="reposList__wrapper">
+            </div>
+
             <br>
-        </div>
-    </section>
+            <div style="display: inline-flex;">
+                <button id="reposList__addRepoButton" style="background-color: var(--green-1);">Add repository</button>
+                <button id="reposList__closeRepoButton" style="background-color: red; margin-left: 10px;">Cancel ✕</button>
+            </div>
+
+            <form class="reposList__newRepoWrapper">
+                <br>
+                <div style="display: inline-flex; justify-content: flex-start; align-items: flex-start;">
+                    <span>Private repo:</span>
+                    <input type="checkbox" style="width: 15px; height: 15px; margin-left: 10px;" name="isPrivateRepo">
+                </div>
+                <br>
+                <div class="newRepo__accountSelectDiv" style="flex-direction: column; padding-left: 10px;">
+                    <span>Account:</span>
+                    <select name="account" id=""></select>
+                </div>
+                <br>
+                <span>Repository url:</span>
+                <input type="text" name="repo_url">
+                <br>
+                <span>Branch name:</span>
+                <select name="branch"></select>
+                <br>
+                <span>Relative path to DockerFile:</span>
+                <input type="text" name="dockerfilepath" placeholder="not required">
+                <br>
+                <span>Ports: [locallhost:container]</span>
+                <div style="display: inline-flex;">
+                    <input type="text" name="locallPort" style="width: 60px;">
+                    <span style="font-size: 25px;">:</span>
+                    <input type="text" name="dockerPort" style="width: 60px;">
+                </div>
+                <br>
+                <span class="reposLis__newRepoWrapper__errMsg"></span>
+                <br>
+            </form>
+        </section>
+    </div>
 
     
     <section class="terminal">
         <div id="terminal_resizer"></div>
         <div class="terminal__menu">
+            <button class="terminal_positionButton">right</button>
             <button class="terminal__clearButton">clear</button>
+            <button class="terminal__autoScrollButton">autoScroll ✕</button>
         </div>
         <div class="terminal_messagesWrapper">
             <br>
+            
         </div>
     </section>
    
-
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script src="{{ url_for('static', filename='js/onclick.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/eventSourcing.js') }}"></script>
 </body>
 </html>

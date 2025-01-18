@@ -1,12 +1,14 @@
 import subprocess, json, os
 import logging as log
-from git import Repo
+from git import Repo    # pip install GitPython
 
-def run_command(command):
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+def run_command(command) -> tuple[bool, str]:
     print(f'run command: {command}')
     try:
         result = subprocess.run(
-            command, 
+            command,
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE, 
             text=True, 
@@ -29,6 +31,74 @@ else:
     print("Произошла ошибка:")
     print(output)
 '''
+
+class Executer:
+    @staticmethod
+    def run_cmd(command: str) -> tuple[bool, str]:
+        try:
+            result = subprocess.run(
+                command,
+                stdout=subprocess.PIPE, 
+                stderr=subprocess.PIPE, 
+                text=True, 
+                shell=isinstance(command, str)
+            )
+            if result.returncode == 0:
+                return True, result.stdout.strip()
+            else:
+                return False, f"Error: {result.stderr.strip()}"
+        except Exception as e:
+            return False, f"Exception: {str(e)}"
+
+    @staticmethod
+    def run_batch(scriptName: str, *args) -> tuple[bool, str]:
+        """
+        Executes a bat file with the ability to pass parameters.
+        
+        bat_file: Name of .bat file
+        args: Parameters to be passed to the bat file
+        Return: tuple (exit code, error text or None)
+        """
+        scriptPath = os.path.join(BASE_DIR, 'bats', scriptName)
+        try:
+            command = [scriptPath, *args]
+            result = subprocess.run(command, shell=True, text=True, capture_output=True)
+            
+            if result.returncode != 0:
+                return False, result.stderr
+            return True, None
+        except Exception as e:
+            return False, str(e)
+
+
+class SSEEvents:
+    class log:
+        @staticmethod
+        def info(msg):
+            msgToSend = json.dumps({ 'type': 'info', 'msg': msg })
+            yield f'data: {msgToSend} \n\n'
+
+        @staticmethod
+        def error(msg, closeConnection: bool):
+            msgToSend = json.dumps({ 'type': 'error', 'msg': msg })
+            yield f'data: {msgToSend} \n\n'
+            if closeConnection:
+                yield from SSEEvents.close()
+
+    @staticmethod
+    def sendJson(data: dict | str):
+        if type(data) == dict: data = json.dumps(data)
+        msgToSend = json.dumps({ 'type': 'json', 'data': data })
+        yield f'data: {msgToSend} \n\n'
+
+    @staticmethod
+    def close(msg: str = None):
+        data = { 'type': 'close' }
+        if msg: data['msg'] = msg
+        msgToSend = json.dumps(data)
+        yield f'data: {msgToSend} \n\n'
+
+
 
 class JsonEditor():
     @staticmethod
@@ -60,13 +130,13 @@ class JsonEditor():
         except Exception as e:
             print(f"Ошибка при чтении файла: {e}")
             return None
-        
+
 
 class BaseController():
-    CURRENT_DIR = os.getcwd()
+    CURRENT_DIR = BASE_DIR
     REPOS_DIR = os.path.join(CURRENT_DIR, 'repos')
     ACCOUNTS_JSON_PATH = os.path.join(CURRENT_DIR, 'accounts.json')
-    DELTE_REPO_BAT = os.path.join(CURRENT_DIR, 'bats', 'delete_repo.bat')
+    DELETE_REPO_BAT = os.path.join(CURRENT_DIR, 'bats', 'delete_repo.bat')
 
 
 class AccountsController(BaseController):
@@ -85,6 +155,20 @@ class AccountsController(BaseController):
             return True, {}
         return False, accs
     
+    def getAccount(self, username: str) -> dict | None:
+        """
+        Reads the accounts.json file.
+
+        Parametrs:
+            account username
+        
+        Return account object (dict) or None
+        """
+        accs = JsonEditor.read(self.ACCOUNTS_JSON_PATH)
+        if accs[username]:
+            return accs[username]
+        return None
+
     def addAccount(self, account: dict) -> None:
         """
         Writes a new account object to accounts.json
@@ -139,19 +223,18 @@ class ReposController(BaseController):
                 reposList.append(repo_info)
         return False, reposList
     
-    def getRepo(self, repoName: str | dict) -> tuple[bool, dict]:
+    def getRepo(self, repoName: str | dict) -> dict | None:
         """
-        Returns tuple:
-            is the repo found? (bool)\n
-            info.json data (dict)
+        Returns:
+            data (dict) or None if not repo
         """
         if not os.path.isdir(os.path.join(self.REPOS_DIR, repoName)):
             # repo not found
-            return False, {}
+            return None
         file = JsonEditor.read(os.path.join(self.REPOS_DIR, repoName, 'info.json'))
         if not file:
-            return False, {}
-        return True, file
+            return None
+        return file
 
     def addRepo(self, repoObj: dict):
         """
@@ -180,7 +263,7 @@ class ReposController(BaseController):
 
         try:
             result = subprocess.run(
-                [self.DELTE_REPO_BAT, deleteFolder],
+                [self.DELETE_REPO_BAT, deleteFolder],
                 check=True,
                 text=True,
                 capture_output=True,
@@ -294,7 +377,7 @@ class DockerController(ReposController):
         infoFile = JsonEditor.read(infoFilePath)
         imageName = infoFile['docker']['imageName']
 
-        delImagesCommand = f'docker images --filter "reference={imageName}" -q | ' + " ForEach-Object { docker rmi -f $_ }"
+        delImagesCommand = f'docker rmi --force {imageName}:latest'
         status, output = run_command(delImagesCommand)
         if not status:
             log.error(f"Error while deleting images with indentical name: {output}")
@@ -333,7 +416,7 @@ class DockerController(ReposController):
         infoFile = JsonEditor.read(infoFilePath)
         imageName = infoFile['docker']['imageName']
 
-        delContainersCommand = f'docker ps -a --filter "name={imageName}" -q | ' + 'ForEach-Object { docker rm -f $_ }'
+        delContainersCommand = f'docker stop {imageName} && docker rm {imageName}'
         status, output = run_command(delContainersCommand)
         if not status:
             log.error(f"error deleting images with identical name. Output: {output}")
@@ -351,33 +434,6 @@ class DockerController(ReposController):
             return f"Container startup error: command failed. command output: {output}"
         log.info(f"Container started successfully. repoName=({repoName}) imageName=({imageName})")
 
-"""
-class FullLaunch(AccountsController, ReposController, GitController, DockerController):
-    def launch(self, repoName: str) -> None | str:
-        isExsists, infoFile = self.getRepo(repoName)
-        if not isExsists:
-            return "Repository not found"
-        
-        # git pull
-        if not infoFile['isDownloaded']:
-            err = self.pullRepo(repoName)
-            if err: return err
-            self.updateRepo(repoName, { "isDownloaded": True })
-        
-        # docker build
-        if not infoFile['docker']['isBuilded']:
-            err = self.dockerBuild(repoName)
-            if err: return err
-            self.updateRepo(repoName, { "docker/isBuilded": True })
-
-        # docker run
-        if not infoFile['docker']['isRunning']:
-            err = self.dockerRun(repoName)
-            if err: return err
-            self.updateRepo(repoName, { "docker/isRunning": True })
-
-        return None
-"""
 
 
 

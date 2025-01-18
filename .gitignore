@@ -3,3 +3,8 @@ repos
 accounts.json
 .env
 *.log
+flask_app.spec
+dist
+build
+app.log
+ds_bot.py
