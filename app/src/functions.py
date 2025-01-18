@@ -1,8 +1,7 @@
 import subprocess, json, os
 import logging as log
 from git import Repo    # pip install GitPython
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from src.config import BASE_DIR
 
 def run_command(command) -> tuple[bool, str]:
     print(f'run command: {command}')
@@ -21,16 +20,6 @@ def run_command(command) -> tuple[bool, str]:
     except Exception as e:
         return False, f"Exception: {str(e)}"
 
-# Пример использования
-'''
-success, output = run_command("ls -la" if subprocess.os.name != "nt" else "dir")
-if success:
-    print("Команда выполнена успешно:")
-    print(output)
-else:
-    print("Произошла ошибка:")
-    print(output)
-'''
 
 class Executer:
     @staticmethod
@@ -99,7 +88,6 @@ class SSEEvents:
         yield f'data: {msgToSend} \n\n'
 
 
-
 class JsonEditor():
     @staticmethod
     def overwrite(file_path, data):
@@ -134,9 +122,15 @@ class JsonEditor():
 
 class BaseController():
     CURRENT_DIR = BASE_DIR
-    REPOS_DIR = os.path.join(CURRENT_DIR, 'repos')
-    ACCOUNTS_JSON_PATH = os.path.join(CURRENT_DIR, 'accounts.json')
+    REPOS_DIR = os.path.join(CURRENT_DIR, 'db', 'repos')
+    ACCOUNTS_JSON_PATH = os.path.join(CURRENT_DIR, 'db', 'accounts.json')
     DELETE_REPO_BAT = os.path.join(CURRENT_DIR, 'bats', 'delete_repo.bat')
+
+    def __init__(self):
+        if not os.path.exists(self.REPOS_DIR): os.mkdir(self.REPOS_DIR)
+        if not os.path.exists(self.ACCOUNTS_JSON_PATH):
+            with open(self.ACCOUNTS_JSON_PATH, "w") as file:
+                file.write('{}')
 
 
 class AccountsController(BaseController):
@@ -260,6 +254,7 @@ class ReposController(BaseController):
         elif type(repo) == dict:
             repoName = repo['name']
         deleteFolder = os.path.join(self.REPOS_DIR, repoName)
+        print('deleteFolder ', deleteFolder)
 
         try:
             result = subprocess.run(

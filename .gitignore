@@ -8,3 +8,4 @@ dist
 build
 app.log
 ds_bot.py
+*-installer.exe

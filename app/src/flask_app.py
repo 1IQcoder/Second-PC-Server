@@ -4,11 +4,11 @@ pyinstaller --add-data "templates;templates" --add-data "static;static" --add-da
 """
 
 from flask import Flask, jsonify, render_template, request, Response
-from logger_config import setup_logger
+from src.logger_config import setup_logger
 import json, os, logging
-from functions import SSEEvents, AccountsController, ReposController, GitController, DockerController, Executer
+from src.functions import SSEEvents, AccountsController, ReposController, GitController, DockerController, Executer
+from src.config import BASE_DIR
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 accountsController = AccountsController()
 reposController = ReposController()
 gitController = GitController()
