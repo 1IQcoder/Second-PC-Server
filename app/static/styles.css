@@ -395,3 +395,8 @@ input, select {
     flex-direction: column;
 }
 
+/* CLOUDFLARE BLOCK */
+.cloudflare {
+    display: flex;
+    flex-direction: column;
+}

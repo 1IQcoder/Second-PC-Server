@@ -5,14 +5,15 @@ pyinstaller --add-data "templates;templates" --add-data "static;static" --add-da
 
 from flask import Flask, jsonify, render_template, request, Response
 from src.logger_config import setup_logger
-import json, os, logging
-from src.functions import SSEEvents, AccountsController, ReposController, GitController, DockerController, Executer
+import json, os, logging, requests
+from src.functions import SSEEvents, AccountsController, ReposController, GitController, DockerController, Executer, CloudflareController
 from src.config import BASE_DIR
 
 accountsController = AccountsController()
 reposController = ReposController()
 gitController = GitController()
 dockerController = DockerController()
+flareController = CloudflareController()
 app = Flask(
     __name__,
     static_folder=os.path.join(BASE_DIR, "static"),
@@ -200,6 +201,41 @@ def update_repos_state():
         updatedData[name] = repoObj
     return jsonify(updatedData), 200
 
+
+@app.route('/api/set-flare-account', methods=['GET'])
+def set_flare_account():
+    apiToken = request.args.get('api_token')
+    err = flareController.addAccout(apiToken)
+    if err: return jsonify({ 'msg': err }), 400
+    return jsonify({ 'msg': 'Cloudflare account has been added' }), 200
+
+
+@app.route('/api/get-flare-account', methods=['GET'])
+def get_flare_account():
+    res = flareController.getAccount()
+    if type(res) == str: return jsonify({ 'msg': res }), 400
+    return jsonify(res), 200
+
+
+@app.route('/api/tunnel/create', methods=['POST'])
+def tunnel_create():
+    data = request.data.decode()
+    GitHubHeaders = { "Authorization": f"token {data['repo']['access_token']}" }
+
+    def sse_func():
+        repoUrl = data['repo']['url']
+        username = data['user']['username']
+        repoName = reposController.urlToName(repoUrl)
+        repoOwner = reposController.urlToOwnerName(repoUrl)
+        repoFullName = reposController.urlToFullName(repoUrl, True)
+
+        # создание папки пользователя и папки репозитория
+        reposController.createUserFolder(username)
+        reposController.addRepo(repoFullName)
+
+        # скачивание репозитория
+
+    return Response(sse_func(), content_type='text/event-stream')
 
 
 def run_flask():

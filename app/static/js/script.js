@@ -385,6 +385,7 @@ class ReposRenderer {
 
     async displayRepo(repo) {
         const blockId = Date.now();
+        console.log(repo)
         this.ui.reposWrapper.innerHTML += `
             <br>
             <div class="reposList__wrapper__elem" id="${blockId}">
@@ -437,7 +438,7 @@ class ReposRenderer {
             return;
         }
         data.forEach(repo => {
-            // Logic for updating repositories can be implemented here
+            // Logic for updating repositories
         });
     }
 
@@ -736,11 +737,71 @@ class Terminal {
     }
 }
 
+class CloudflareController {
+    constructor() {
+        this.account = null;
+    }
+
+    async setAccount(api_token) {
+        const params = new URLSearchParams({ api_token: api_token });
+        const res = await fetch(`${SERVER_URL}/api/set-flare-account?${params.toString()}`);
+        const resData = res.json();
+        if (res.status != 200) return new ApiResponse(false, resData.msg);
+        return new ApiResponse(true, resData.msg);
+    }
+}
+
+class CloudflareRenderer {
+    /**
+     * @param {string} selector 
+     * @param {CloudflareController} controller 
+     */
+    constructor(selector, controller) {
+        this.controller = controller;
+        this.section = document.querySelector(selector);
+
+        this.ui = {
+            setTokenButton: this.section.querySelector('#set_flare_token'),
+            tokenInput: this.section.querySelector('input[data-name="token-input"]')
+        }
+
+        this.init();
+    }
+
+    async init() {
+        this.ui.setTokenButton.addEventListener('click', this.setTokenHandler);
+    }
+
+    async setTokenHandler() {
+        console.log('first')
+        console.log(this.ui)
+        const token = this.ui.tokenInput.value;
+        const res = await this.controller.setAccount(token);
+        return terminal.addMsg(res.success, res.msg);
+    }
+
+    async setValue(data_name, value) {
+        const elem = this.section.querySelector(`[data-name="${data_name}"]`);
+        if (!elem) return console.log(`element with data-name ${data_name} not found`);
+        if (elem.tagName == 'INPUT') {
+            elem.value = value;
+        } else if (elem.tagName == 'SPAN') {
+            elem.innerHTML = value;
+        } else console.log('setValue: element must be INPUT or SPAN')
+    }
+
+    async renderAccoutData() {
+
+    }
+}
+
 const terminal = new Terminal('.terminal');
 const accountsController = new AccountsController();
 const accountsRenderer = new AccountsRenderer('.accounts', accountsController);
 const reposController = new ReposController();
 const reposRenderer = new ReposRenderer('.reposList', reposController);
+const flareController = new CloudflareController();
+const flareRenderer = new CloudflareRenderer('.cloudflare', flareController);
 
 
 

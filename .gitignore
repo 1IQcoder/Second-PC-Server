@@ -9,3 +9,5 @@ build
 app.log
 ds_bot.py
 *-installer.exe
+cloudflare.json
+tunnels
