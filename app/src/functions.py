@@ -1,27 +1,24 @@
-import subprocess, json, os, requests, yaml, shutil
+import subprocess, json, os, requests, yaml, shutil, base64
 from subprocess import CompletedProcess
 import logging as log
-from git import Repo    # pip install GitPython
-# from src.config import BASE_DIR
-BASE_DIR = r'D:\\sklad\\txt\\SecondPC-server\\app'
+from src.config import BASE_DIR
+# BASE_DIR = r'D:\\sklad\\txt\\SecondPC-server\\app'
 
 class ApiResponseError(Exception):
-    def __init__(self, message, requestUrl='-', status_code='-'):
-        super().__init__(message)
-        self.message = message
-        self.requestUrl = requestUrl
-        self.status_code = status_code
+    def __init__(self, res, message='-', requestUrl='-', status_code='-'):
+        if res:
+            self.message = res.text
+            self.requestUrl = res.url
+            self.status_code = res.status_code
+        else:
+            self.message = message
+            self.requestUrl = requestUrl
+            self.status_code = status_code
 
     def __str__(self):
         return (
-            f"ApiResponseError: {self.message} \n"
+            f"ResponseContent: {self.message} \n"
             f"(URL: {self.requestUrl}, Status Code: {self.status_code})"
-        )
-
-    def __repr__(self):
-        return (
-            f"ApiResponseError(message={self.message!r}, \n"
-            f"requestUrl={self.requestUrl!r}, status_code={self.status_code!r})"
         )
 
 
@@ -40,24 +37,6 @@ class ExecuterError(Exception):
         )
 
 
-def run_command(command) -> tuple[bool, str]:
-    print(f'run command: {command}')
-    try:
-        result = subprocess.run(
-            command,
-            stdout=subprocess.PIPE, 
-            stderr=subprocess.PIPE, 
-            text=True, 
-            shell=isinstance(command, str)
-        )
-        if result.returncode == 0:
-            return True, result.stdout.strip()
-        else:
-            return False, f"Error: {result.stderr.strip()}"
-    except Exception as e:
-        return False, f"Exception: {str(e)}"
-
-
 class Executer:
     @staticmethod
     def run_cmd(command: str) -> CompletedProcess:
@@ -74,6 +53,7 @@ class Executer:
             text=True, 
             shell=isinstance(command, str)
         )
+        log.info(f'running command: ({command}); code: {result.returncode}')
         return result
 
     @staticmethod
@@ -93,23 +73,25 @@ class Executer:
 
 
 class SSEEvents:
-    class log:
-        @staticmethod
-        def info(msg):
-            msgToSend = json.dumps({ 'type': 'info', 'msg': msg })
-            yield f'data: {msgToSend} \n\n'
-
-        @staticmethod
-        def error(msg, closeConnection: bool):
-            msgToSend = json.dumps({ 'type': 'error', 'msg': msg })
-            yield f'data: {msgToSend} \n\n'
-            if closeConnection:
-                yield from SSEEvents.close()
+    @staticmethod
+    def info(msg, closeConnection: bool = False):
+        msgToSend = json.dumps({ 'type': 'info', 'msg': msg, 'close': closeConnection })
+        yield f'data: {msgToSend} \n\n'
 
     @staticmethod
-    def sendJson(data: dict | str):
+    def error(msg, closeConnection: bool = False):
+        msgToSend = json.dumps({ 'type': 'error', 'msg': msg, 'close': closeConnection })
+        yield f'data: {msgToSend} \n\n'
+
+    @staticmethod
+    def fatal(msg = 'FATAL ERROR'):
+        msgToSend = json.dumps({ 'type': 'fatal', 'msg': msg, 'close': True })
+        yield f'data: {msgToSend} \n\n'
+
+    @staticmethod
+    def sendJson(data: dict | str, closeConnection: bool = False):
         if type(data) == dict: data = json.dumps(data)
-        msgToSend = json.dumps({ 'type': 'json', 'data': data })
+        msgToSend = json.dumps({ 'type': 'json', 'data': data, 'close': closeConnection })
         yield f'data: {msgToSend} \n\n'
 
     @staticmethod
@@ -122,41 +104,33 @@ class SSEEvents:
 
 class JsonEditor:
     @staticmethod
-    def overwrite(file_path, data):
-        try:
-            with open(file_path, 'w') as file:
-                json.dump(data, file, indent=4, ensure_ascii=False)
-            print(f"Файл {file_path} успешно перезаписан.")
-        except Exception as e:
-            print(f"Ошибка при перезаписи файла: {e}")
+    def overwrite(jsonFilePath: str, dataToWrite: dict) -> None:
+        dirPath = os.path.dirname(jsonFilePath)
+        if not os.path.exists(dirPath): raise ValueError("json file not found in the specified directory")
+        with open(jsonFilePath, 'w') as file:
+            json.dump(dataToWrite, file, indent=4, ensure_ascii=False)
+        print(f"Файл {jsonFilePath} успешно перезаписан.")
 
     @staticmethod
-    def read(file_path) -> dict | None:
+    def read(file_path) -> dict:
         """
         Reads data from .json file
 
         Returns dictrionary or None if error occured
         """
-        try:
-            with open(file_path, 'r') as file:
-                data = json.load(file)
-            return data
-        except FileNotFoundError:
-            print(f"Файл {file_path} не найден.")
-            return None
-        except json.JSONDecodeError:
-            print(f"Файл {file_path} повреждён или не является JSON.")
-            return None
-        except Exception as e:
-            print(f"Ошибка при чтении файла: {e}")
-            return None
+        with open(file_path, 'r') as file:
+            data = json.load(file)
+        if not data: return {}
+        return data
 
 
 class BaseController:
     CURRENT_DIR = BASE_DIR
+    DB_DIR = os.path.join(CURRENT_DIR, 'db')
     REPOS_DIR = os.path.join(CURRENT_DIR, 'db', 'repos')
     ACCOUNTS_JSON_PATH = os.path.join(CURRENT_DIR, 'db', 'accounts.json')
     DELETE_REPO_BAT = os.path.join(CURRENT_DIR, 'bats', 'delete_repo.bat')
+    USERS_FILE_PATH = os.path.join(DB_DIR, 'users.json')
 
 
 class AccountsController(BaseController):
@@ -388,85 +362,105 @@ class ReposController(BaseController):
         if res.status_code != 200: return False, res.json()['message']
 
 
-class myRepo(BaseController):
-    def _isUrlValid(self) -> bool:
-        reqUrl = f'https://api.github.com/repos/{self.repoFullName}'
+class Repo(BaseController):
+    """
+    #### Can be initialized with:
+    1. `url` or repository. Example: https://api.github.com/repos/1IQcoder/Second-PC-Server
+    2. `full_name` of repository. Example: 1IQcoder/Second-PC-Server
+    #### Can be loaded with `hash` of already initialized repository
+    """
+    url: str                    # https://api.github.com/repos/1IQcoder/Second-PC-Server
+    hash: str
+    private: bool
+    branch: str
+    ports: list                 # [pcPort, dockerPort]
+    repoOwner: str              # 1IQcoder
+    repoFullName: str           # 1IQcoder/Second-PC-Server
+    repoName: str               # Second-PC-Server
+    projectOwner: str           # InvalidObject (discord username)
+    name: str                   # InvalidObject.Second-PC-Server.branch
+    dockerName: str             # invalidobject.second-pc-server.branch
+    dirPath: str
+    dkfilePath: str             # file path relative to repository root
+
+    def _isRepoExists(self, urlOrFullname) -> bool:
+        """
+        #### Param `urlOrFullname` can be:
+        1. `git url`. Example: https://github.com/1IQcoder/Second-PC-Server.git
+        2. `repository full name`. Example: 1IQcoder/Second-PC-Server
+        #### Checking repo exists and setting attrs:
+        1. `url`
+        2. `repoName`
+        3. `repoFullName`
+        4. `repoOwner`
+        5. `private`
+        """
+        if urlOrFullname.startswith('https://'):
+            reqUrl = urlOrFullname.replace("https://github.com/", "https://api.github.com/repos/").removesuffix(".git")
+        else:
+            reqUrl = f'https://api.github.com/repos/{urlOrFullname}'
+        log.info(f'Checking repository URL: {reqUrl}')
+        res = requests.get(reqUrl, headers=self.ghHeaders)
+        resData = res.json()
+        if res.status_code != 200:
+            if res.status_code == 404:
+                log.error("Repository not found")
+                raise ValueError("Repository not found")
+            if res.status_code == 401:
+                log.error("Bad credentials, GitHub access_token is bad")
+                raise ValueError("Bad credentials, GitHub access_token is bad")
+            log.error(f'GitHub API error: {resData["message"]}')
+            raise ApiResponseError(resData['message'], reqUrl, status_code=res.status_code)
+        log.info('Repository URL is valid.')
+        self.url = resData['url']
+        self.repoName = resData['name']
+        self.repoFullName = resData['full_name']
+        self.repoOwner = resData['owner']['login']
+        self.private = resData['private']
+        self.repoDefaultBranch = resData['default_branch']
+        return True
+
+    def _isBranchValid(self, branch) -> bool:
+        """
+        #### Checking branch exists and setting `self.branch`
+        """
+        if branch == 'default':
+            self.branch = self.repoDefaultBranch
+            del self.repoDefaultBranch
+            return True
+        reqUrl = f'{self.url}/branches/{branch}'
         res = requests.get(reqUrl, headers=self.ghHeaders)
         if res.status_code != 200:
             if res.status_code == 404:
-                raise ValueError("Repository not found")
-
-            if res.status_code == 401:
-                raise ValueError("Bad credentials, GitHub access_token is bad")
-
-            if res.json()['message'].startswith('API rate limit'):
-                print('GitHub API rate limit, _isUrlValid skipping...')
-                return True
-            
-            raise ApiResponseError(res.json()['message'], reqUrl, status_code=res.status_code)
+                return False
+            raise ApiResponseError(res.json()['message'], reqUrl, res.status_code)
+        self.branch = branch
         return True
 
-    def _isBranchValid(self) -> bool:
-        reqUrl = f'https://api.github.com/repos/{self.repoFullName}/branches'
+    def _isDockerfileExists(self) -> str:
+        reqUrl = f'{self.url}/git/trees/{self.branch}?recursive=1'
+        log.info(f'Checking Dockerfile existence in repository: {reqUrl}')
         res = requests.get(reqUrl, headers=self.ghHeaders)
         if res.status_code != 200:
-            if not res.json()['message'].startswith('API rate limit'):
-                raise ApiResponseError(res.json()['message'], reqUrl, res.status_code)
-            print('GitHub API rate limit, _isBranchValid skipping...')
-            return True
-        branches = res.json()
-        for branch in branches:
-            if branch['name'] == self.branch: return True
-            if self.branch == 'main/master':
-                if (branch['name'] == 'main') or (branch['name'] == 'master'): return True
+            log.error(f'Failed to fetch repository tree: {res.status_code}')
+            raise ApiResponseError(res)
+        fileTree = res.json()['tree']
+        for file in fileTree:
+            path = file['path']
+            if path.endswith('Dockerfile'):
+                self.dkfilePath = path
+                log.info(f'Found Dockerfile at {self.dkfilePath}')
+                return file['path']
+        log.warning('Dockerfile not found in repository.')
         return False
-
-    def _save_info_file(self, dataForFile: dict):
-        JsonEditor.overwrite(os.path.join(self.repoDirPath, 'info.json'), dataForFile)
-
-    def _write_info_file(self):
-        self._mk_repo_dir()
-        portsObj = [0, 0]  # 0 - locall port / 1 - docker port
-        dataObj = {
-            'url': self.url,
-            'repoFullName': self.repoFullName,
-            'ownerUsername': self.ownerUsername,
-            'repoName': self.repoName,
-            'name': self.name,
-            'branch': self.branch,
-            'isPrivate': self.private,
-            'ghHeaders': {},
-            'git': { 'isPulled': False, 'commitHash': 1 },
-            'docker': {
-                'imageName': self.dockerName,
-                'rootPath': '/',
-                'buildCommand': f'docker build -t {self.dockerName}:latest {self.dockerName} --no-cache',
-                'isBuilded': False,
-                'isRunning': False,
-                'containerStatus': 'offline',
-                'runCommand': f'docker run --name {self.dockerName} -d -p {portsObj[0]}:${portsObj[1]} ${self.dockerName}:latest'
-            }
-        }
-        if self.private: dataObj['ghHeaders'] = self.ghHeaders
-        attrs = self.__dict__
-        dataObj.update({ 'attrs': attrs })
-        self._save_info_file(dataObj)
 
     def _load_attrs(self, infoFilePath):
         infoData = JsonEditor.read(infoFilePath)
-        attrs = ['url', 'branch', 'private', 'ghHeaders', 'repoFullName', 'repoName', 'ownerUsername', 'name', 'dockerName', 'userFolderPath', 'repoDirPath']
-        for atr in attrs:
-            setattr(self, atr, infoData['attrs'][atr])
+        attrs = infoData['attrs']
+        for attr in attrs.keys():
+            setattr(self, attr, attrs[attr])
 
-    def _mk_repo_dir(self):
-        """
-        Makes dir for repository in 'db' folder like a "db/1IQcoder/1IQcoder.Second-PC-Server"\n
-        Skips logic if repository dir already exists
-        """
-        if not os.path.isdir(self.userFolderPath): os.mkdir(self.userFolderPath)
-        if not os.path.isdir(self.repoDirPath): os.mkdir(self.repoDirPath)
-
-    def _download_files(self, file_list, output_dir):
+    def _git_pull(self, file_list, output_dir):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
@@ -494,209 +488,193 @@ class myRepo(BaseController):
                 if response.status_code == 200:
                     sub_files = response.json()
                     sub_dir = os.path.join(output_dir, dir_name)
-                    self._download_files(sub_files, sub_dir)
+                    self._git_pull(sub_files, sub_dir)
                 else:
                     print(f"Failed to access directory {dir_name}. HTTP {response.status_code}")
 
+    def _dkDelImage(self):
+        res = Executer.run_cmd(f'docker rmi --force {self.dockerName}:latest')
+        if res.returncode != 0:
+            log.error(f'Failed to delete old Docker image: {res.stderr}')
+            raise ExecuterError(res)
+
+    def _dkDelContainer(self):
+        res = Executer.run_cmd(f'docker stop {self.dockerName}')
+        if res.returncode != 0:
+            log.warning(f'Docker stop container error: {res.stderr}', exc_info=True)
+        res = Executer.run_cmd(f'docker rm {self.dockerName}')
+        if res.returncode != 0:
+            log.warning(f'Docker remove container error: {res.stderr}', exc_info=True)
+
     # Constructors
-    def __initWithUrl(self, url, branch = 'main/master', private = False, ports = [0, 0]):
-        self.branch = branch
-        self.repoFullName = ReposController.urlToFullName(url)
-        self.ownerUsername = ReposController.urlToOwnerName(url)
+    def __loadWithHash(self, hash, user):
+        try:
+            relPath = base64.b64decode(hash).decode()
+        except Exception as e:
+            raise ValueError("Hash of repository incorrect", str(e))
+        path = os.path.join(self.DB_DIR, 'repos', user.username, relPath, 'info.json')
+        if not os.path.exists(path):
+            raise ValueError("Repository with such hash not found")
+        self._load_attrs(path)
+
+    def __init__(self, initMethod: str, ghAccess_token: str = None, branch: str = 'default', ports: list = [0, 0], user = None):
+        if not initMethod: raise ValueError("initMethod parameter is required")
+        if not '/' in initMethod:
+            return self.__loadWithHash(initMethod, user)
+
+        if not ghAccess_token: raise ValueError("Access_token is required")
+        self.ghHeaders = { "Authorization": f"token {ghAccess_token}" }
+        self.projectOwner = user.username
+
+        if not self._isRepoExists(initMethod): raise ValueError("GitHub repository not found")
+        if not self._isBranchValid(branch): raise ValueError("The GitHub repository does not have such a branch")
         self.name = (self.repoFullName + '.' + self.branch).replace('/', '.')
+        self.dirPath = os.path.join(user.userFolderPath, self.name)
+        if not self._isDockerfileExists(): raise ValueError("Path to Dockerfile is not specified or invalid")
+        self.dockerName = self.name.lower()
+        self.ports = ports
 
-        # загрузка существующего репозитория если он есть
-        infoFilePath = os.path.join(self.REPOS_DIR, self.ownerUsername, self.name, 'info.json')
-        if os.path.exists(infoFilePath):
-            print('Repo already exists.')
-            return self._load_attrs(infoFilePath)
+        if os.path.exists(self.dirPath): shutil.rmtree(self.dirPath)
+        os.mkdir(self.dirPath)
 
-        self.url = url
-        self.private = private
-        self.repoName = ReposController.urlToName(url)                              # Second-PC-Server
-        self.dockerName = self.name.lower()                                         # 1iqcoder.second-pc-server.main
-        self.userFolderPath = os.path.join(self.REPOS_DIR, self.ownerUsername)
-        self.repoDirPath = os.path.join(self.userFolderPath, self.name)
+    def __del__(self):
+        # Saving project data before destruction
+        if hasattr(self, 'isDeleted'): return
+        dataObj = {
+            'docker': {
+                'imageName': self.name,
+                'rootPath': self.dkfilePath,
+                'buildCommand': f'docker build -t {self.name}:latest {self.name} --no-cache',
+                'containerStatus': 'offline',
+                'runCommand': f'docker run --name {self.name} -d -p {self.ports[0]}:${self.ports[1]} ${self.name}:latest'
+            }
+        }
+        attrs = self.__dict__
+        dataObj.update({ 'attrs': attrs })
+        path = os.path.join(self.dirPath, 'info.json')
+        JsonEditor.overwrite(path, dataObj)
 
-        if not self._isUrlValid(): raise ValueError(f"GitHub repository not found")
-        if not self._isBranchValid(): raise ValueError("The GitHub repository does not have such a branch")
-        self._write_info_file()
-
-    def __initWithName(self, infoFilePath):
-        self._load_attrs(infoFilePath)
-
-    def __init__(self, urlOrName: str, branch: str = 'main/master', private: bool = False, ghAccess_token: str = None, ports: list = [0, 0]):
-        if not urlOrName: raise ValueError("urlOrName parameter is required")
-        if private and not ghAccess_token: raise ValueError("Access_token is required for private repository")
-        
-        if ghAccess_token:
-            self.ghHeaders = { "Authorization": f"token {ghAccess_token}" }
-
-        if urlOrName.startswith('https://'):
-            args = {k: v for k, v in locals().items() if k != 'self'}
-            args['url'] = args.pop('urlOrName')
-            args.pop('ghAccess_token')
-            return self.__initWithUrl(**args)
-        else:
-            infoFilePath = os.path.join(self.REPOS_DIR, urlOrName, 'info.json')
-            if not os.path.exists(infoFilePath):
-                raise ValueError("Repository not exists")
-            return self.__initWithName(infoFilePath)
+    def getHash(self):
+        """
+        `name` -> hash\n
+        Example: InvalidObject.Second-PC-Server.main -> hash
+        """
+        if not hasattr(self, "hash") or not self.hash:
+            self.hash = base64.b64encode(self.name.encode()).decode()
+        return self.hash
 
     def download(self):
-        reqUrl = f'https://api.github.com/repos/{self.repoFullName}/contents/'
+        reqUrl = f'{self.url}/contents/?ref={self.branch}'
+        log.info(f'Downloading repository contents from {reqUrl}')
         res = requests.get(reqUrl, headers=self.ghHeaders)
-        if res.status_code != 200: raise ApiResponseError(res.json()['message'], reqUrl, res.status_code)
+        if res.status_code != 200:
+            log.error(f'Failed to fetch repository contents: {res.json()["message"]}')
+            raise ApiResponseError(res)
         files = res.json()
-        self._mk_repo_dir()
-        srcPath = os.path.join(self.repoDirPath, 'src')
-        self._download_files(files, srcPath)
+        srcPath = os.path.join(self.dirPath, 'src')
+        self._git_pull(files, srcPath)
+        log.info(f'Repository {self.repoFullName} downloaded successfully.')
 
     def delete(self):
-        shutil.rmtree(self.repoDirPath, True)
-        # удаление папки юзера если она пуста
-        self.userFolderPath = os.path.join(self.REPOS_DIR, self.ownerUsername)
-        if len(os.listdir(self.userFolderPath)) < 1: os.rmdir(self.userFolderPath)
+        log.info(f'Removing project ({self.name}) from docker')
+        self._dkDelContainer()
+        self._dkDelImage()
+        log.info(f'Deleting project ({self.name})...')
+        shutil.rmtree(self.dirPath, True)
+        self.isDeleted = True # for __del__ method
+        log.info(f'Project ({self.name}) deleted.')
 
     def build(self):
-        delImagesCommand = f'docker rmi --force {self.dockerName}:latest'
-        res = Executer.run_cmd(delImagesCommand)
-        if res.returncode != 0: raise ExecuterError(res)
-
-        runCommand = f'docker build -t {self.dockerName}:latest {self.repoDirPath} --no-cache'
+        self._dkDelImage()
+        log.info(f'Starting Docker image build for {self.dockerName}')
+        dkfileFullPath = os.path.join(self.dirPath, 'src', self.dkfilePath)
+        runCommand = f'docker build -t {self.dockerName}:latest -f {dkfileFullPath} {self.dirPath}/src --no-cache'
         res = Executer.run_cmd(runCommand)
-        if res.returncode != 0: raise ExecuterError(res)
+        if res.returncode != 0:
+            log.error(f'Failed to build Docker image: {res.stderr}')
+            raise ExecuterError(res)
+        log.info(f'Docker image {self.dockerName} built successfully.')
 
     def run(self):
-        delContainerCommand = f'docker stop {self.dockerName} && docker rm {self.dockerName}'
-        res = Executer.run_cmd(delContainerCommand)
-        if res.returncode != 0: raise ExecuterError(res)
-
+        self._dkDelContainer()
+        log.info(f'Starting container for {self.name}')
         runCommand = f'docker run --name {self.dockerName} -d -p {self.ports[0]}:{self.ports[1]} {self.dockerName}:latest'
         res = Executer.run_cmd(runCommand)
-        if res.returncode != 0: raise ExecuterError(res)
+        if res.returncode != 0:
+            log.error(f'Failed to start Docker container: {res.stderr}')
+            raise ExecuterError(res)
+        log.info(f'Container {self.name} started successfully.')
 
 
-class GitController(BaseController):
-    def pullRepo(self, repo: dict | str) -> None | str:
+class User(BaseController):
+    USERS_FILE_PATH = BaseController.USERS_FILE_PATH
+    if not os.path.exists(BaseController.USERS_FILE_PATH):
+        JsonEditor.overwrite(BaseController.USERS_FILE_PATH, {})
+
+    username: str
+    userObj: dict
+    userFolderPath: str
+
+    def __init__(self, username: str):
+        self.username = username
+        self.userFolderPath = os.path.join(self.DB_DIR, 'repos', username)
+        if not os.path.exists(self.userFolderPath): os.mkdir(self.userFolderPath)
+        fileData = None
+        if os.path.exists(User.USERS_FILE_PATH):
+            fileData = JsonEditor.read(self.USERS_FILE_PATH)
+        if fileData and (username in fileData.keys()):
+            self.userObj = fileData[username]
+        else:
+            self.userObj = {
+                'username': username,
+                'projects': {}
+            }
+
+    def __del__(self):
+        # save user data to json file
+        fileData = {}
+        if os.path.exists(User.USERS_FILE_PATH):
+            fileData = JsonEditor.read(self.USERS_FILE_PATH)
+        print(fileData)
+        fileData[self.username] = self.userObj
+        JsonEditor.overwrite(self.USERS_FILE_PATH, fileData)
+        if len(os.listdir(self.userFolderPath)) < 1:
+            os.rmdir(self.userFolderPath)
+
+    def newProject(self, urlOrHash: str, ghAccess_token, **kwargs) -> Repo:
         """
-        Downloads files from branch of GitHub repository
-
-        Parameters:
-            repoObject (dict) or repoFullName (str)
-
-        Return exception (str) if an errors occurs
+        Returns created project
         """
-        repoName = ''
-        if type(repo) == str:
-            repoName = repo
-        elif type(repo) == dict:
-            repoName = repo['name']
-        
-        infoFilePath = os.path.join(self.REPOS_DIR, repoName, 'info.json')
-        infoFile = JsonEditor.read(infoFilePath)
-        repoSrcPath = os.path.join(self.REPOS_DIR, repoName, 'src')
-        url = infoFile['url']
-        branch = infoFile['branchName']
-        commitHash  = ''
+        repo = Repo(urlOrHash, ghAccess_token, user=self, **kwargs)
+        project = {
+            'name': repo.repoFullName,
+            'branch': repo.branch,
+            'hash': repo.getHash()
+        }
+        self.userObj['projects'][repo.repoName] = project
+        return repo
 
-        try:
-            if os.path.exists(repoSrcPath):
-                repo = Repo(repoSrcPath)
-                log.info(f"Starting repository update ({repoName}; {url})")
-                origin = repo.remotes.origin
-                origin.pull(branch)
-                commitHash = repo.head.commit.hexsha
-            else:
-                log.info(f"Start cloning repository ({repoName}; {url})")
-                Repo.clone_from(url, repoSrcPath, branch=branch)
-                repo = Repo(repoSrcPath)
-                commitHash = repo.head.commit.hexsha
-        except Exception as e:
-            log.error(f"Pulling repository error: {e}")
-            return str(e)
+    def loadProject(self, hash: str) -> Repo:
+        return Repo(hash, user=self)
 
-        infoFile['git']['commitHash'] = commitHash
-        JsonEditor.overwrite(infoFilePath, infoFile)
-        log.info(f"Repository src files downloaded ({repoName}; {url})")
-
-
-class DockerController(ReposController):
-    def dockerBuild(self, repo: dict | str) -> None | str:
+    def deleteProject(self, hash: str):
         """
-        Executes docker image build command
-
-        Parameters:
-            repoObject (dict) or repoFullName (str)
-
-        Return exception (str) if an errors occurs
+        Returns projectName
         """
-        repoName = ''
-        if type(repo) == str:
-            repoName = repo
-        elif type(repo) == dict:
-            repoName = repo['name']
+        repo = Repo(hash, user=self)
+        repoName = repo.repoFullName
+        repo.delete()
+        del self.userObj['projects'][repo.repoName]
+        return repoName
 
-        infoFilePath = os.path.join(self.REPOS_DIR, repoName, 'info.json')
-        infoFile = JsonEditor.read(infoFilePath)
-        imageName = infoFile['docker']['imageName']
-
-        delImagesCommand = f'docker rmi --force {imageName}:latest'
-        status, output = run_command(delImagesCommand)
-        if not status:
-            log.error(f"Error while deleting images with indentical name: {output}")
-            # return f"Error while deleting images with indentical name: {output}"
-
-        buildCommand = infoFile['docker']['buildCommand'] + ' ' + os.path.join(self.REPOS_DIR, repoName, 'src', infoFile['docker']['rootPath'])
-        log.info(f"Start docker image building. repoName=({repoName}) command=({buildCommand})")
-
-        status, output = run_command(buildCommand)
-
-        if not status:
-            log.error(f"Error while building image: {output}")
-            return f"Error while building image: {output}"
-
-        infoFile['docker']['containerStatus'] = 'offline'
-        infoFile['docker']['isBuilded'] = True
-        JsonEditor.overwrite(infoFilePath, infoFile)
-        log.info(f"Docker image successfully built. repoName=({repoName})")
-
-    def dockerRun(self, repo: dict | str) -> None | str:
+    def getProjects(self) -> dict | None:
         """
-        Starts a docker container
-        
-        Parameters:
-            repoObject (dict) or repoFullName (str)
-
-        Return exception (str) if an errors occurs
+        Returns dict or None if project list emty
         """
-        repoName = ''
-        if type(repo) == str:
-            repoName = repo
-        elif type(repo) == dict:
-            repoName = repo['name']
-
-        infoFilePath = os.path.join(self.REPOS_DIR, repoName, 'info.json')
-        infoFile = JsonEditor.read(infoFilePath)
-        imageName = infoFile['docker']['imageName']
-
-        delContainersCommand = f'docker stop {imageName} && docker rm {imageName}'
-        status, output = run_command(delContainersCommand)
-        if not status:
-            log.error(f"error deleting images with identical name. Output: {output}")
-            # return f"error deleting images with identical name. Output: {output}"
-
-        status, output = run_command(f'docker image inspect {imageName}')
-        if not status:
-            self.updateRepo(repoName, { "docker/isBuilded": False })
-            log.error(f"No such image exists: repoName=({repoName}), command output: {output}")
-            return f"No such image exists"
-        
-        status, output = run_command(infoFile['docker']['runCommand'])
-        if not status:
-            log.error(f"Container startup error: command failed. command output: {output}")
-            return f"Container startup error: command failed. command output: {output}"
-        log.info(f"Container started successfully. repoName=({repoName}) imageName=({imageName})")
+        projects = self.userObj['projects']
+        if len(projects) > 0:
+            return projects
+        else: return None
 
 
 class CloudflareController(BaseController):
@@ -841,13 +819,3 @@ class CloudflareController(BaseController):
         if os.path.exists(tunnelFolderPath): shutil.rmtree(tunnelFolderPath)
         if flareData.get('tunnels') and flareData['tunnels'].get(tunnelName): del flareData['tunnels'][tunnelName]
         JsonEditor.overwrite(self.FLARE_FILE_PATH, flareData)
-
-# tunnels = CloudflareController()
-# tunnels.addAccout('1PtYlwiQz_xCUIjOvVSuzwVyC0Qt5j05lzHVRMqq')
-# tunnels.deleteTunnel('ivan-rak')
-# tunnels.createTunnel('ivan-rak', '5173')
-
-repo = myRepo('https://github.com/1IQcoder/Second-PC-Server.git')
-# repo.download()
-# repo.delete()
-# repo.build()
