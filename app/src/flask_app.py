@@ -6,12 +6,9 @@ pyinstaller --add-data "templates;templates" --add-data "static;static" --add-da
 from flask import Flask, jsonify, render_template, request, Response
 import os, json
 import logging as log
-from src.functions import SSEEvents, AccountsController, ReposController, Executer, CloudflareController, User, Repo
+from src.functions import SSEEvents, User
 from src.config import BASE_DIR
 
-accountsController = AccountsController()
-reposController = ReposController()
-flareController = CloudflareController()
 app = Flask(
     __name__,
     static_folder=os.path.join(BASE_DIR, "static"),
