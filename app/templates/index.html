@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Second PC Server</title>
+</head>
+<body>
+    <main>
+        <!-- api token -->
+        <section style="margin-top: 30px;">
+            <form id="logInForm">
+                <h2>Log in your Cloudflare account</h2>
+                <input name="api_token" type="text" placeholder="Paste api token here">
+                <button type="submit" style="margin-top: 10px;">Submit</button>
+                <p class="error-msg"></p>
+            </form>
+        </section>
+
+        <!-- select zone -->
+        <section style="margin-top: 50px;">
+            <form id="zoneSelectForm">
+                <h2>Select a zone (domain)</h2>
+                <select name="zones">
+                    
+                </select>
+                <button type="submit" style="margin-top: 10px;">Complete</button>
+                <p class="error-msg"></p>
+            </form>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

@@ -1,3 +1,8 @@
+"""
+Build command:
+pyinstaller --add-data "templates;templates" --add-data "static;static" --add-data "bats;bats" flask_app.py
+"""
+
 import os, sys, logging
 
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
@@ -15,5 +20,5 @@ logging.basicConfig(
 )
 
 if __name__ == "__main__":
-    logging.info("Starting Flask application...")
+    logging.info("Starting SecondPCServer...")
     run_flask()

@@ -1,13 +1,10 @@
-"""
-Build command:
-pyinstaller --add-data "templates;templates" --add-data "static;static" --add-data "bats;bats" flask_app.py
-"""
-
 from flask import Flask, jsonify, render_template, request, Response
-import os, json
+import os
 import logging as log
-from src.functions import SSEEvents, User
+from src.core import User, ProjectConfig, Project, ProjectFactory, CFManager
+from src.utils import SSEEvents
 from src.config import BASE_DIR
+
 
 app = Flask(
     __name__,
@@ -21,55 +18,88 @@ def home():
     return render_template('index.html')
 
 
+@app.route('/cf-log-in', methods=['POST'])
+def set_accout():
+    data = request.json
+    print(data)
+    try: res = CFManager.add_account(data['api_token'])
+    except Exception as e:
+        log.error(e, exc_info=True)
+        return jsonify({ 'message': str(e) }), 400
+    return jsonify(res), 200
+
+
+@app.route('/cf-create-tunnel', methods=['POST'])
+def set_zone():
+    data = request.json
+    print(data['zone'])
+    try: CFManager.create_tunnel()
+    except Exception as e:
+        log.error(e, exc_info=True)
+        return jsonify({ 'message': str(e) }), 400
+    CFManager.set_zone(data['zone'])
+    return jsonify({ 'message': 'Cloudflare tunnel created!' }), 200
+
+
 @app.route('/api/user/<username>/project/create', methods=['POST'])
 def create_project(username):
     if not request.json:
         return jsonify({'message': 'Invalid JSON data'}), 400
 
     data = request.json
-    repoUrl = data['repo']['url']
-    branch = data['repo']['branch']
-    ghAccess_token = data['repo']['access_token']
-    ports = data['repo']['ports']
+    config = ProjectConfig(
+        web_url = data['repo']['url'],
+        ghAccess_token = data['repo']['access_token'],
+        branch = data['repo']['branch'],
+        appName = data['repo']['appName'],
+        appPort = data['repo']['appPort']
+    )
 
     try:
         user = User(username)
-        repo = user.newProject(repoUrl, branch=branch, ghAccess_token=ghAccess_token, ports=ports)
-    except Exception as e: 
+        project = user.newProject(config)
+    except Exception as e:
         log.error(e, exc_info=True)
         return jsonify({ 'message': str(e) }), 400
-    return jsonify({ 'message': 'success', 'hash': repo.getHash() }), 200
+    return jsonify({ 'message': 'success', 'hash': project.name }), 200
 
 
-@app.route('/api/user/<username>/project/<hash>/launch')
-def repo_launch(username, hash):
+@app.route('/api/user/<username>/project/<project_name>/launch')
+def repo_launch(username, project_name):
     def sse_func():
         user = User(username)
-        try: repo = user.loadProject(hash)
+        try: project = user.loadProject(project_name)
         except Exception as e:
             yield from SSEEvents.fatal(str(e))
             return log.error(e, exc_info=True)
 
         yield from SSEEvents.info("Downloading repository")
-        try: repo.download()
+        try: project.download()
         except Exception as e:
             yield from SSEEvents.fatal(str(e))
             return log.error(e, exc_info=True)
         yield from SSEEvents.info("Repository downloaded")
 
         yield from SSEEvents.info("Building docker image")
-        try: repo.build()
+        try: project.build()
         except Exception as e:
             yield from SSEEvents.fatal(str(e))
             return log.error(e, exc_info=True)
         yield from SSEEvents.info("Docker container of repository builded")
 
         yield from SSEEvents.info("Running docker container")
-        try: repo.run()
+        try: project.run()
         except Exception as e:
             yield from SSEEvents.fatal(str(e)) 
             return log.error(e, exc_info=True)
         yield from SSEEvents.info("Docker container is running locally")
+
+        yield from SSEEvents.info("Tunneling")
+        try: project.tunnel()
+        except Exception as e:
+            yield from SSEEvents.fatal(str(e))
+            return log.error(e, exc_info=True)
+        yield from SSEEvents.info("Tunneling is done")
 
         yield from SSEEvents.close()
         return
