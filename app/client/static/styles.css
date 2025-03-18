@@ -42,9 +42,19 @@ h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight: 400;}
     --green1: rgb(16, 213, 16);
 }
 
+h1 {
+    font-size: 35px;
+    padding: 10px;
+}
+
 h2 {
     font-size: 30px;
     padding: 10px;
+}
+
+h3 {
+    font-size: 20px;
+    padding: 5px;
 }
 
 body {
@@ -74,6 +84,16 @@ section::before, section::after {
 }
 section::after {
     margin-top: 10px;
+}
+
+.input-block {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0 4px 10px;
+}
+.input-block>span {
+    font-size: 15px;
+    margin-bottom: 2px;
 }
 
 input {

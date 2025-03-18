@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <title>Docker runner</title>
+</head>
+<body>
+    <main>
+        <h1>Docker runner</h1>
+        <section style="margin-top: 30px;">
+            <form id="newDk">
+                <h3>Launch git-hub repository with docker at 1 minute</h3>
+                <div class="input-block">
+                    <span>Unique name of your app</span>
+                    <input name="name" type="text" placeholder="Unique name of your app">
+                </div>
+                <div class="input-block">
+                    <span>Repository URL</span>
+                    <input name="url" type="text">
+                </div>
+                <div class="input-block">
+                    <span>Access token</span>
+                    <input name="token" type="text" placeholder="Access token of your GitHub account">
+                </div>
+                <div class="input-block">
+                    <span>Branch</span>
+                    <input name="branch" type="text" value="main/master">
+                </div>
+                <div class="input-block">
+                    <span>Port thats your app working</span>
+                    <input name="port" type="number">
+                </div>
+                <button type="submit" style="margin-top: 10px;">Launch!</button>
+                <p class="error-msg"></p>
+            </form>
+        </section>
+
+        <section style="margin-top: 50px;">
+            <h3>Working apps</h3>
+            <form>
+                <button type="submit">Update</button>
+            </form>
+        </section>
+    </main>
+
+    <script src="{{ url_for('static', filename='dk.js') }}"></script>
+</body>
+</html>

@@ -4,33 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
-    <title>Second PC Server</title>
+    <title>SPCS Config</title>
 </head>
 <body>
-    <main>
-        <!-- api token -->
+    <main id="setUpSection" style="position: absolute; z-index: 999; width: 100%; height: 100%; background-color: black;">
         <section style="margin-top: 30px;">
+            <h2>Log in your Cloudflare account</h2>
             <form id="logInForm">
-                <h2>Log in your Cloudflare account</h2>
+                <h3>Cloudflare api token:</h3>
                 <input name="api_token" type="text" placeholder="Paste api token here">
-                <button type="submit" style="margin-top: 10px;">Submit</button>
-                <p class="error-msg"></p>
-            </form>
-        </section>
+                <button type="button" id="loadZones" style="margin-top: 10px;">Load your zones</button>
 
-        <!-- select zone -->
-        <section style="margin-top: 50px;">
-            <form id="zoneSelectForm">
-                <h2>Select a zone (domain)</h2>
+                <h3>Select a zone (domain):</h3>
                 <select name="zones">
-                    
+                    <option value="">null</option>
                 </select>
                 <button type="submit" style="margin-top: 10px;">Complete</button>
-                <p class="error-msg"></p>
             </form>
         </section>
+
+        <div>
+            <p class="error-msg"></p>
+        </div>
     </main>
 
-    <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='config.js') }}"></script>
 </body>
 </html>

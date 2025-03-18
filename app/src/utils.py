@@ -1,6 +1,6 @@
 import json, subprocess, os
 import logging as log
-from subprocess import CompletedProcess
+from subprocess import CompletedProcess, CalledProcessError
 from src.config import BASE_DIR
 
 class ApiResponseError(Exception):
