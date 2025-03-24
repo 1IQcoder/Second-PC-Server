@@ -1,6 +1,6 @@
 from flask import jsonify, request, Response, Blueprint
-from src.core import User, ProjectConfig, Project, ProjectFactory, CFManager, DockerApp, GitHubRepo, TunnelBuilder, Directory
-from src.utils import SSEEvents
+from core import DockerApp, GitHubRepo, TunnelBuilder
+from utils import SSEEvents
 import logging as log
 
 api_bp = Blueprint('api', __name__)

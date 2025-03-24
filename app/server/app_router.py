@@ -1,7 +1,7 @@
 from flask import jsonify, render_template, request, Blueprint
 import requests
 import logging as log
-from src.core import GitHubRepo, TunnelBuilder, CloudflareController, DockerApp
+from core import GitHubRepo, TunnelBuilder, CloudflareController, DockerApp
 
 cf_bp = Blueprint('cf', __name__)
 dk_bp = Blueprint('dk', __name__)
@@ -11,7 +11,7 @@ dk_bp = Blueprint('dk', __name__)
 def dk():
     return render_template('dk.html')
 
-@dk_bp.route('/dk/launch', methods=['POST'])
+@dk_bp.route('/launch', methods=['POST'])
 def docker_launch():
     data: dict = request.json
 

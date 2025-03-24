@@ -11,4 +11,5 @@ users.json
 dist
 *.spec
 apps
-nsis
+bin
+*.exe

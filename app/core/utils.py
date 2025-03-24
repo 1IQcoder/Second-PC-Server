@@ -1,7 +1,55 @@
-import json, subprocess, os
+import json, subprocess, os, sys
 import logging as log
-from subprocess import CompletedProcess, CalledProcessError
-from src.config import BASE_DIR
+from subprocess import CompletedProcess
+
+def get_app_dir():
+    if getattr(sys, 'frozen', False):
+        app_dir = os.path.dirname(os.path.dirname(sys._MEIPASS))
+    else:
+        app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return app_dir
+
+APP_DIR = get_app_dir()
+DB_DIR = os.path.join(APP_DIR, 'db')
+CLIENT_DIR = os.path.join(APP_DIR, 'client')
+
+print(APP_DIR)
+print(DB_DIR)
+
+class AppDir:
+    CURRENT_DIR = APP_DIR
+    DB_DIR = os.path.join(CURRENT_DIR, 'db')
+    APPS_DIR = os.path.join(DB_DIR, 'apps')
+    CF_CONFIG = os.path.join(DB_DIR, 'cloudflare.json')             # Cloudflare config (account data, zones list, tunnels data)
+
+    @classmethod
+    def create_db_folder(cls):
+        print(cls.CURRENT_DIR)
+        if not os.path.isdir(cls.DB_DIR): os.mkdir(cls.DB_DIR)
+
+    @classmethod
+    def new_app_dir(cls, app_name: str):
+        if not os.path.isdir(cls.APPS_DIR): os.mkdir(cls.APPS_DIR)
+        path = os.path.join(cls.APPS_DIR, app_name)
+        if not os.path.isdir(path): os.mkdir(path)
+        return path
+    
+    @classmethod
+    def cf_config(cls) -> dict:
+        if not os.path.exists(cls.CF_CONFIG): JsonEditor.overwrite(cls.CF_CONFIG, {})
+        config = JsonEditor.read(cls.CF_CONFIG)
+        return config
+    
+    @classmethod
+    def is_cf_ready(cls) -> bool:
+        """
+        Checks the cloudflare.json file for account and tunnel info
+        """
+        config = cls.cf_config()
+        if not config.get('account', False) or not config.get('tunnel', False):
+            return False
+        return True
+
 
 class ApiResponseError(Exception):
     def __init__(self, res, message='-', requestUrl='-', status_code='-'):
@@ -64,41 +112,11 @@ class Executer:
         :param args: Arguments to pass to the script.
         :return: A CompletedProcess object containing the execution result.
         """
-        scriptPath = os.path.join(BASE_DIR, 'bats', scriptName)
+        scriptPath = os.path.join(APP_DIR, 'bats', scriptName)
         if not os.path.exists(scriptPath): raise ValueError("Bat file not found")
         command = [scriptPath, *args]
         result = subprocess.run(command, shell=True, text=True, capture_output=True)
         return result
-
-
-class SSEEvents:
-    @staticmethod
-    def info(msg, closeConnection: bool = False):
-        msgToSend = json.dumps({ 'type': 'info', 'msg': msg, 'close': closeConnection })
-        yield f'data: {msgToSend} \n\n'
-
-    @staticmethod
-    def error(msg, closeConnection: bool = False):
-        msgToSend = json.dumps({ 'type': 'error', 'msg': msg, 'close': closeConnection })
-        yield f'data: {msgToSend} \n\n'
-
-    @staticmethod
-    def fatal(msg = 'FATAL ERROR'):
-        msgToSend = json.dumps({ 'type': 'fatal', 'msg': msg, 'close': True })
-        yield f'data: {msgToSend} \n\n'
-
-    @staticmethod
-    def sendJson(data: dict | str, closeConnection: bool = False):
-        if type(data) == dict: data = json.dumps(data)
-        msgToSend = json.dumps({ 'type': 'json', 'data': data, 'close': closeConnection })
-        yield f'data: {msgToSend} \n\n'
-
-    @staticmethod
-    def close(msg: str = None):
-        data = { 'type': 'close' }
-        if msg: data['msg'] = msg
-        msgToSend = json.dumps(data)
-        yield f'data: {msgToSend} \n\n'
 
 
 class JsonEditor:
