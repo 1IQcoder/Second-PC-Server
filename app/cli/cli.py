@@ -1,13 +1,17 @@
 """
 Build guide:
+    cd app/cli
     pyinstaller --add-data "../core;core" --distpath ../../build/ --workpath ../../build/trash/ --hidden-import=requests --clean -y cli.py
+
+Debug command:
+    cd app
+    python -m cli.cli
 """
 
 """
 commands:
-    cf login <cloudflare_api_token>
+    init <cloudflare_api_token> name=<name: optional> zone=<zone: optional>
 
-    tunnel create name=<name: optional> zone=<zone: optional>
     tunnel delete
     tunnel status
 
@@ -21,96 +25,96 @@ commands:
 """
 
 import sys, argparse
-from core import GitHubRepo
+from core import CFClient
 
-def cf_check(func):
-    """
-    Cloudflare account and tunnel check
-    """
-    def wrapper():
-        
-        func()
-    return wrapper
+cf_client = CFClient()
 
-class TunnelCommands:
-    @staticmethod
-    def create():
-        print('create')
-
-    @staticmethod
-    def delete():
-        print('delete')
-
-    @staticmethod
-    def status():
-        print('status')
+print("CF_CLIENT:", cf_client)
+print("CF_CLIENT INIT:", getattr(cf_client, "_initialized", "NO ATTRIBUTE"))
 
 
-# class RouteCommands:
+import sys
+from core import CFClient
 
+cf_client = CFClient()
 
 def main():
-    if len(sys.argv) < 2:
-        print("No command provided")
-        sys.exit(1)
+    args = sys.argv
 
-    command = sys.argv[1]
-    args_list = sys.argv[2:]
-
-    parser = argparse.ArgumentParser(prog=command, description="SPCS CLI")
-    subparsers = parser.add_subparsers(dest="subcommand", required=True)
-
-    if command == "cf":
-        login_parser = subparsers.add_parser("login", help="Authenticate using Cloudflare API token")
-        login_parser.add_argument("cloudflare_api_token", type=str, help="Cloudflare API token")
-        login_parser.set_defaults(func=login)
-
-    elif command == "tunnel":
-        tunnel_parser = argparse.ArgumentParser(prog="tunnel", description="Manage tunnels")
-        tunnel_subparsers = tunnel_parser.add_subparsers(dest="tunnel_command", required=True)
-
-        create_parser = tunnel_subparsers.add_parser("create", help="Create a new tunnel")
-        create_parser.add_argument("--name", type=str, default="default_tunnel", help="Tunnel name (optional)")
-        create_parser.add_argument("--zone", type=str, default="default_zone", help="Cloudflare zone (optional)")
-        create_parser.set_defaults(func=tunnel_create)
-
-        delete_parser = tunnel_subparsers.add_parser("delete", help="Delete an existing tunnel")
-        delete_parser.set_defaults(func=tunnel_delete)
-
-        status_parser = tunnel_subparsers.add_parser("status", help="Check tunnel status")
-        status_parser.set_defaults(func=tunnel_status)
-
-        args = tunnel_parser.parse_args(args_list)
-        args.func(args)
+    if not args:
+        print("Ошибка: команда не указана")
         return
 
-    elif command == "route":
-        route_parser = argparse.ArgumentParser(prog="route", description="Manage routing")
-        route_subparsers = route_parser.add_subparsers(dest="route_command", required=True)
+    command = args[0]
 
-        all_parser = route_subparsers.add_parser("all", help="Show all routes")
-        all_parser.set_defaults(func=route_all)
+    match command:
+        case "init":
+            if len(args) < 2:
+                print("Ошибка: не указан API-токен")
+                return
+            api_token = args[1]
+            name = None
+            zone = None
+            for arg in args[2:]:
+                if arg.startswith("name="):
+                    name = arg.split("=", 1)[1]
+                elif arg.startswith("zone="):
+                    zone = arg.split("=", 1)[1]
+            cf_client.init(api_token=api_token, zone_name=zone)
 
-        app_parser = route_subparsers.add_parser("app", help="Create an app route")
-        app_parser.add_argument("name", type=str, help="App name")
-        app_parser.add_argument("port", type=int, help="App port")
-        app_parser.set_defaults(func=route_app)
+        case "tunnel":
+            if len(args) < 2:
+                print("Ошибка: подкоманда не указана (delete/status)")
+                return
+            match args[1]:
+                case "delete":
+                    cf_client.tunnel.delete()
+                case "status":
+                    cf_client.tunnel.status()
+                case _:
+                    print(f"Ошибка: неизвестная подкоманда {args[1]}")
 
-        remove_parser = route_subparsers.add_parser("remove", help="Remove a route")
-        remove_parser.add_argument("name", type=str, help="Route name to remove")
-        remove_parser.set_defaults(func=route_remove)
+        case "route":
+            if len(args) < 2:
+                print("Ошибка: подкоманда не указана (all/app/remove)")
+                return
+            match args[1]:
+                case "all":
+                    cf_client.route.all()
+                case "app":
+                    if len(args) < 4:
+                        print("Ошибка: недостаточно аргументов для route app")
+                        return
+                    name = args[2]
+                    port = int(args[3])
+                    cf_client.route.app(name, port)
+                case "remove":
+                    if len(args) < 3:
+                        print("Ошибка: не указано имя маршрута")
+                        return
+                    name = args[2]
+                    cf_client.route.remove(name)
+                case _:
+                    print(f"Ошибка: неизвестная подкоманда {args[1]}")
 
-        args = route_parser.parse_args(args_list)
-        args.func(args)
-        return
+        case "server":
+            if len(args) < 2:
+                print("Ошибка: подкоманда не указана (status/launch/stop)")
+                return
+            match args[1]:
+                case "status":
+                    cf_client.server.status()
+                case "launch":
+                    cf_client.server.launch()
+                case "stop":
+                    cf_client.server.stop()
+                case _:
+                    print(f"Ошибка: неизвестная подкоманда {args[1]}")
 
-    else:
-        print(f"Unknown command: {command}")
-        sys.exit(1)
-
-    args = parser.parse_args(args_list)
-    args.func(args)
+        case _:
+            print(f"Ошибка: неизвестная команда {command}")
 
 if __name__ == "__main__":
+    sys.argv = ["init", "PF19RM-La5RcSe4GpdsenHDYPds4E-wT5xRwQjxW", "zone=spc-server.xyz"]
     main()
 

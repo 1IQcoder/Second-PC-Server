@@ -13,10 +13,9 @@ APP_DIR = get_app_dir()
 DB_DIR = os.path.join(APP_DIR, 'db')
 CLIENT_DIR = os.path.join(APP_DIR, 'client')
 
-print(APP_DIR)
-print(DB_DIR)
-
 class AppDir:
+    if not os.path.isdir(DB_DIR): os.mkdir(DB_DIR)
+
     CURRENT_DIR = APP_DIR
     DB_DIR = os.path.join(CURRENT_DIR, 'db')
     APPS_DIR = os.path.join(DB_DIR, 'apps')
@@ -33,12 +32,6 @@ class AppDir:
         path = os.path.join(cls.APPS_DIR, app_name)
         if not os.path.isdir(path): os.mkdir(path)
         return path
-    
-    @classmethod
-    def cf_config(cls) -> dict:
-        if not os.path.exists(cls.CF_CONFIG): JsonEditor.overwrite(cls.CF_CONFIG, {})
-        config = JsonEditor.read(cls.CF_CONFIG)
-        return config
     
     @classmethod
     def is_cf_ready(cls) -> bool:
@@ -139,6 +132,61 @@ class JsonEditor:
             data = json.load(file)
         if not data: return {}
         return data
+    
+    @staticmethod
+    def validate_file(file_path: str) -> bool:
+        try:
+            with open(file_path, "r", encoding="utf-8") as file:
+                json.load(file)
+            return True
+        except (json.JSONDecodeError, FileNotFoundError, IOError):
+            return False
+
+    @staticmethod
+    def check_file(path: str):
+        if os.path.exists(path):
+            return
+        if path.endswith(os.sep) or "." not in os.path.basename(path):
+            os.makedirs(path, exist_ok=True)
+        else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w') as file:
+                json.dump({}, file, indent=4, ensure_ascii=False)
 
 
+class BaseJsonFile:
+    """
+    Usage for read: `data = config('account', 'id')`\n
+    Usage for write: `config.set('account', 'id', value='734985984')`
+    """
 
+    FILE_PATH: str
+
+    def __init__(self):
+        JsonEditor.check_file(self.FILE_PATH)
+        self.data = JsonEditor.read(self.FILE_PATH)
+
+    def __call__(self, *args):
+        for arg in args:
+            if isinstance(self.data, dict) and arg in self.data:
+                self.data = self.data[arg]
+            else:
+                return None
+        return self.data
+
+    def set(self, *args, value):
+        if not args:
+            return
+        data = self.data
+        for arg in args[:-1]:
+            if arg not in data or not isinstance(data[arg], dict):
+                data[arg] = {}
+            data = data[arg]
+        data[args[-1]] = value
+
+    def save(self, obj: dict = None):
+        print('Save method')
+        print(obj)
+        JsonEditor.overwrite(self.FILE_PATH, obj if obj else self.data)
+        if obj: self.data = obj
+        print(self.data)
